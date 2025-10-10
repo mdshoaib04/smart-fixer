@@ -135,9 +135,9 @@ def api_translate():
 def api_dictionary():
     data = request.json
     language = data.get('language', 'Python')
-    category = data.get('category', 'general')
+    searchTerm = data.get('searchTerm', '')
     
-    result = get_dictionary_content(language, category)
+    result = get_dictionary_content(language, searchTerm)
     return jsonify({'result': result})
 
 @app.route('/api/code-history')
@@ -249,39 +249,70 @@ def api_like_post(post_id):
     db.session.commit()
     return jsonify({'success': True, 'likes': post.likes})
 
-@app.route('/api/posts/<int:post_id>/comments', methods=['GET', 'POST'])
+@app.route('/api/posts/<int:post_id>/comments', methods=['GET'])
 @require_login
 def api_comments(post_id):
-    if request.method == 'POST':
-        data = request.json
-        comment = Comment(
-            post_id=post_id,
-            user_id=current_user.id,
-            content=data.get('content', '')
-        )
-        db.session.add(comment)
-        
-        post = Post.query.get(post_id)
-        if post and post.user_id != current_user.id:
-            notif = Notification(
-                user_id=post.user_id,
-                type='comment',
-                content=f"{current_user.first_name} commented on your post",
-                from_user_id=current_user.id
-            )
-            db.session.add(notif)
-        
-        db.session.commit()
-        return jsonify({'success': True})
-    
     comments = Comment.query.filter_by(post_id=post_id).order_by(Comment.created_at.asc()).all()
     return jsonify([{
         'id': c.id,
-        'user_name': f"{c.user.first_name or ''} {c.user.last_name or ''}".strip() or 'User',
+        'author_name': f"{c.user.first_name or ''} {c.user.last_name or ''}".strip() or 'User',
         'user_image': c.user.profile_image_url,
         'content': c.content,
         'created_at': c.created_at.isoformat()
     } for c in comments])
+
+@app.route('/api/posts/<int:post_id>/comment', methods=['POST'])
+@require_login
+def api_add_comment(post_id):
+    data = request.json
+    comment = Comment(
+        post_id=post_id,
+        user_id=current_user.id,
+        content=data.get('content', '')
+    )
+    db.session.add(comment)
+    
+    post = Post.query.get(post_id)
+    if post and post.user_id != current_user.id:
+        notif = Notification(
+            user_id=post.user_id,
+            type='comment',
+            content=f"{current_user.first_name} commented on your post",
+            from_user_id=current_user.id
+        )
+        db.session.add(notif)
+    
+    db.session.commit()
+    return jsonify({'success': True})
+
+@app.route('/api/explore-posts')
+@require_login
+def api_explore_posts():
+    friend_ids = []
+    friendships = Friendship.query.filter(
+        ((Friendship.user_id == current_user.id) | (Friendship.friend_id == current_user.id)) &
+        (Friendship.status == 'accepted')
+    ).all()
+    
+    for f in friendships:
+        friend_id = f.friend_id if f.user_id == current_user.id else f.user_id
+        friend_ids.append(friend_id)
+    
+    posts = Post.query.filter(Post.user_id.in_(friend_ids)).order_by(Post.created_at.desc()).limit(50).all()
+    
+    return jsonify([{
+        'id': p.id,
+        'user_id': p.user_id,
+        'author_name': f"{p.author.first_name or ''} {p.author.last_name or ''}".strip() or 'User',
+        'author_image': p.author.profile_image_url,
+        'code': p.code,
+        'language': p.language,
+        'description': p.description,
+        'likes': p.likes,
+        'liked': bool(PostLike.query.filter_by(post_id=p.id, user_id=current_user.id).first()),
+        'created_at': p.created_at.isoformat(),
+        'comments_count': len(p.comments)
+    } for p in posts])
 
 @app.route('/api/friends')
 @require_login

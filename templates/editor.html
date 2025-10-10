@@ -7,8 +7,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/eclipse.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/anyword-hint.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
@@ -138,43 +141,52 @@
     </div>
     
     <div class="modal" id="profileModal">
-        <div class="modal-content">
+        <div class="modal-content profile-modal-content">
             <span class="close" onclick="closeModal('profileModal')">&times;</span>
-            <div class="profile-tabs">
-                <button class="tab-btn active" onclick="showTab('details')">Personal Details</button>
-                <button class="tab-btn" onclick="showTab('posts')">Posts</button>
-                <button class="tab-btn" onclick="showTab('friends')">Friends</button>
-                <button class="tab-btn" onclick="showTab('notifications')">Notifications</button>
-                <button class="tab-btn" onclick="showTab('time')">Time Spent</button>
+            <div class="profile-tabs vertical-tabs">
+                <button class="tab-btn active" onclick="showTab('details')">👤 Personal Details</button>
+                <button class="tab-btn" onclick="showTab('posts')">📝 My Posts</button>
+                <button class="tab-btn" onclick="showTab('explore')">🌐 Explore</button>
+                <button class="tab-btn" onclick="showTab('friends')">👥 Friends</button>
+                <button class="tab-btn" onclick="showTab('notifications')">🔔 Notifications</button>
+                <button class="tab-btn" onclick="showTab('time')">⏱️ Time Spent</button>
             </div>
             
-            <div id="detailsTab" class="tab-content active">
-                <div class="profile-details">
-                    <img src="{{ user.profile_image_url or 'https://via.placeholder.com/100' }}" alt="Profile" class="profile-image">
-                    <h3>{{ user.first_name }} {{ user.last_name }}</h3>
-                    <p>{{ user.email }}</p>
-                    <textarea id="bioInput" placeholder="Add a bio...">{{ user.bio or '' }}</textarea>
-                    <button onclick="updateProfile()">Update Profile</button>
+            <div class="profile-tab-contents">
+                <div id="detailsTab" class="tab-content active">
+                    <div class="profile-details">
+                        <img src="{{ user.profile_image_url or 'https://via.placeholder.com/100' }}" alt="Profile" class="profile-image">
+                        <h3>{{ user.first_name }} {{ user.last_name }}</h3>
+                        <p>{{ user.email }}</p>
+                        <textarea id="bioInput" placeholder="Add a bio...">{{ user.bio or '' }}</textarea>
+                        <button onclick="updateProfile()">Update Profile</button>
+                    </div>
                 </div>
-            </div>
-            
-            <div id="postsTab" class="tab-content">
-                <button onclick="showPostModal()">Share Code</button>
-                <div id="postsList"></div>
-            </div>
-            
-            <div id="friendsTab" class="tab-content">
-                <input type="email" id="friendEmail" placeholder="Enter friend's email">
-                <button onclick="sendFriendRequest()">Send Request</button>
-                <div id="friendsList"></div>
-            </div>
-            
-            <div id="notificationsTab" class="tab-content">
-                <div id="notificationsList"></div>
-            </div>
-            
-            <div id="timeTab" class="tab-content">
-                <div id="contributionGrid"></div>
+                
+                <div id="postsTab" class="tab-content">
+                    <button onclick="showPostModal()">Share Code</button>
+                    <div id="postsList"></div>
+                </div>
+                
+                <div id="exploreTab" class="tab-content">
+                    <h3 style="margin-bottom: 1rem;">Explore Friends' Posts</h3>
+                    <div id="explorePostsList"></div>
+                </div>
+                
+                <div id="friendsTab" class="tab-content">
+                    <input type="email" id="friendEmail" placeholder="Enter friend's email">
+                    <button onclick="sendFriendRequest()">Send Request</button>
+                    <div id="friendsList"></div>
+                </div>
+                
+                <div id="notificationsTab" class="tab-content">
+                    <div id="notificationsList"></div>
+                </div>
+                
+                <div id="timeTab" class="tab-content">
+                    <h3>GitHub-Style Activity</h3>
+                    <div id="contributionGrid"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -196,7 +208,7 @@
         <div class="modal-content">
             <span class="close" onclick="closeModal('dictionaryModal')">&times;</span>
             <h3>Code Dictionary & Templates</h3>
-            <select id="dictLanguage">
+            <select id="dictLanguage" onchange="updateDictionaryLanguage()">
                 <option value="Python">Python</option>
                 <option value="JavaScript">JavaScript</option>
                 <option value="Java">Java</option>
@@ -219,12 +231,7 @@
                 <option value="SQL">SQL</option>
                 <option value="Shell">Shell</option>
             </select>
-            <select id="dictCategory">
-                <option value="logic">Logic Templates</option>
-                <option value="DSA">Data Structures & Algorithms</option>
-                <option value="practical">Practical Code Snippets</option>
-            </select>
-            <button onclick="getDictionary()">Get Templates</button>
+            <input type="text" id="dictSearch" placeholder="Search code templates (e.g., GCD, factorial, binary search)..." oninput="searchDictionary()">
             <div id="dictionaryContent"></div>
         </div>
     </div>
@@ -235,11 +242,10 @@
             <h3>Translate Code</h3>
             <div class="translate-container">
                 <div class="translate-from">
-                    <label>From: <span id="fromLang">Python</span></label>
+                    <label>From: <span id="fromLang">Python</span> (auto-detected)</label>
                 </div>
                 <div class="translate-to">
                     <label>To:</label>
-                    <input type="text" id="searchToLang" placeholder="Search language..." onkeyup="filterLanguages()">
                     <select id="toLang">
                         <option value="Python">Python</option>
                         <option value="JavaScript">JavaScript</option>

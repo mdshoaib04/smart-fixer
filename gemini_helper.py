@@ -9,19 +9,19 @@ def review_code(code, language, profession="student"):
     context = get_profession_context(profession)
     prompt = f"""You are a code reviewer for a {profession}. {context}
     
-Analyze this {language} code and provide:
-1. Code quality assessment
-2. Potential bugs or issues
-3. Security concerns
-4. Performance suggestions
-5. Best practices recommendations
+Analyze this {language} code CONCISELY:
+1. Code Quality (1-2 sentences)
+2. Bugs/Issues (if any, max 3)
+3. Security (if concerns exist, brief)
+4. Performance (key suggestion)
+5. Best Practice (1 main tip)
 
 Code:
 ```{language}
 {code}
 ```
 
-Provide a detailed review."""
+Keep response short and focused - only mention what's necessary."""
     
     response = client.models.generate_content(
         model="gemini-2.0-flash-exp",
@@ -33,18 +33,18 @@ def explain_code(code, language, profession="student"):
     context = get_profession_context(profession)
     prompt = f"""You are a code explainer for a {profession}. {context}
     
-Explain this {language} code in detail:
-1. What the code does
-2. How it works (step by step)
-3. Key concepts used
-4. Use cases and applications
+Explain this {language} code BRIEFLY:
+1. Purpose (1 sentence)
+2. How it works (3-5 key steps)
+3. Main concepts (2-3 points)
+4. Use case (1 example)
 
 Code:
 ```{language}
 {code}
 ```
 
-Provide a clear, detailed explanation."""
+Keep explanation concise and easy to understand."""
     
     response = client.models.generate_content(
         model="gemini-2.0-flash-exp",
@@ -54,31 +54,26 @@ Provide a clear, detailed explanation."""
 
 def compile_check(code, language, profession="student"):
     context = get_profession_context(profession)
-    prompt = f"""You are a code compiler checker for a {profession}. {context}
-    
-Analyze this {language} code for compilation/execution issues:
-1. Syntax errors
-2. Logic errors
-3. Runtime errors
-4. Dependencies needed
-5. Expected output
+    prompt = f"""You are a code compiler for {language}. 
+
+Execute this {language} code and provide ONLY the output result.
 
 Code:
 ```{language}
 {code}
 ```
 
-Provide detailed compilation check results."""
+Return ONLY what this code will print/output when run. If there are errors, show the error message. Do not explain how to run it."""
     
     response = client.models.generate_content(
         model="gemini-2.0-flash-exp",
         contents=prompt
     )
-    return response.text if response.text else "Unable to check code at this time."
+    return response.text if response.text else "Unable to compile code at this time."
 
 def answer_question(question, code=None, language=None):
     if code and language:
-        prompt = f"""Answer this question about the following {language} code:
+        prompt = f"""Answer this question about the {language} code:
 
 Code:
 ```{language}
@@ -87,11 +82,11 @@ Code:
 
 Question: {question}
 
-Provide a detailed, helpful answer."""
+Answer BRIEFLY in 2-3 sentences with key points only."""
     else:
         prompt = f"""Answer this coding question: {question}
 
-Provide a detailed, helpful answer with code examples if relevant."""
+Provide a CONCISE answer (2-4 sentences) with code example if needed."""
     
     response = client.models.generate_content(
         model="gemini-2.0-flash-exp",
@@ -146,16 +141,23 @@ def get_profession_context(profession):
     }
     return contexts.get(profession, "Provide helpful coding insights.")
 
-def get_dictionary_content(language, category):
-    prompt = f"""Provide {category} code templates and snippets for {language}.
+def get_dictionary_content(language, searchTerm):
+    prompt = f"""Provide a SIMPLE, SHORT, and EASY TO UNDERSTAND code example for "{searchTerm}" in {language}.
 
-Category: {category}
+Requirements:
+- Code must be the SIMPLEST possible implementation
+- Maximum 10-15 lines of code
+- Easy for beginners to understand
+- Include only essential comments
+- Practical and ready to use
+
+Search Term: {searchTerm}
 Language: {language}
 
-Provide practical, working code examples with explanations."""
+Return ONLY the code with minimal explanation."""
     
     response = client.models.generate_content(
         model="gemini-2.0-flash-exp",
         contents=prompt
     )
-    return response.text if response.text else f"No {category} templates available for {language}."
+    return response.text if response.text else f"No template found for '{searchTerm}' in {language}."

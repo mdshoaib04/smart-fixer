@@ -12,7 +12,14 @@ document.addEventListener('DOMContentLoaded', function() {
         matchBrackets: true,
         indentUnit: 4,
         tabSize: 4,
-        lineWrapping: true
+        lineWrapping: true,
+        extraKeys: {"Ctrl-Space": "autocomplete"}
+    });
+    
+    editor.on("inputRead", function(cm, change) {
+        if (change.text[0].length > 0) {
+            cm.showHint({hint: CodeMirror.hint.anyword, completeSingle: false});
+        }
     });
 
     const uploadedCode = sessionStorage.getItem('uploadedCode');
@@ -280,6 +287,7 @@ function showTab(tabName) {
     document.getElementById(tabName + 'Tab').classList.add('active');
     
     if (tabName === 'posts') loadPosts();
+    if (tabName === 'explore') loadExplorePosts();
     if (tabName === 'friends') loadFriends();
     if (tabName === 'notifications') loadNotifications();
     if (tabName === 'time') loadTimeSpent();
@@ -330,15 +338,87 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-async function likePost(postId) {
-    await fetch(`/api/posts/${postId}/like`, {method: 'POST'});
-    loadPosts();
+async function loadExplorePosts() {
+    const response = await fetch('/api/explore-posts');
+    const posts = await response.json();
+    
+    const exploreList = document.getElementById('explorePostsList');
+    exploreList.innerHTML = posts.map(post => `
+        <div class="post-card explore-post">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <img src="${post.author_image || 'https://via.placeholder.com/40'}" style="width: 40px; height: 40px; border-radius: 50%;">
+                <div>
+                    <strong>${post.author_name}</strong>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary);">${new Date(post.created_at).toLocaleString()}</p>
+                </div>
+            </div>
+            <p>${post.description}</p>
+            <div class="post-code">${escapeHtml(post.code).substring(0, 200)}${post.code.length > 200 ? '...' : ''}</div>
+            <div style="display: flex; gap: 1.5rem; margin-top: 1rem; align-items: center;">
+                <button onclick="likePost(${post.id}, 'explore')" style="display: flex; align-items: center; gap: 0.3rem;">
+                    <span>${post.liked ? '❤️' : '🤍'}</span> <span>${post.likes}</span>
+                </button>
+                <button onclick="toggleComments(${post.id})" style="display: flex; align-items: center; gap: 0.3rem;">
+                    💬 <span>${post.comments_count || 0}</span>
+                </button>
+                <button onclick="sharePost(${post.id})">
+                    📤 Share
+                </button>
+            </div>
+            <div id="comments-${post.id}" class="comments-section" style="display: none;"></div>
+        </div>
+    `).join('');
 }
 
-async function showComments(postId) {
-    const response = await fetch(`/api/posts/${postId}/comments`);
-    const comments = await response.json();
-    alert('Comments: ' + comments.length);
+async function likePost(postId, source = 'posts') {
+    await fetch(`/api/posts/${postId}/like`, {method: 'POST'});
+    if (source === 'explore') loadExplorePosts();
+    else loadPosts();
+}
+
+async function toggleComments(postId) {
+    const commentsDiv = document.getElementById(`comments-${postId}`);
+    if (commentsDiv.style.display === 'none') {
+        const response = await fetch(`/api/posts/${postId}/comments`);
+        const comments = await response.json();
+        commentsDiv.innerHTML = `
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                <input type="text" id="comment-input-${postId}" placeholder="Add a comment..." style="width: 100%; padding: 0.5rem; margin-bottom: 0.5rem;">
+                <button onclick="addComment(${postId})">Post Comment</button>
+                <div id="comments-list-${postId}">
+                    ${comments.map(c => `
+                        <div style="padding: 0.5rem; margin-top: 0.5rem; background: var(--bg-secondary); border-radius: 8px;">
+                            <strong>${c.author_name}</strong>
+                            <p>${c.content}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        commentsDiv.style.display = 'block';
+    } else {
+        commentsDiv.style.display = 'none';
+    }
+}
+
+async function addComment(postId) {
+    const input = document.getElementById(`comment-input-${postId}`);
+    const content = input.value.trim();
+    if (!content) return;
+    
+    await fetch(`/api/posts/${postId}/comment`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({content})
+    });
+    
+    input.value = '';
+    toggleComments(postId);
+    setTimeout(() => toggleComments(postId), 100);
+}
+
+function sharePost(postId) {
+    alert('Post link copied! Share with your friends.');
 }
 
 function showPostModal() {
@@ -513,16 +593,24 @@ function showDictionary() {
     toggleMenu();
 }
 
-async function getDictionary() {
+function updateDictionaryLanguage() {
+    document.getElementById('dictSearch').value = '';
+    document.getElementById('dictionaryContent').innerHTML = '';
+}
+
+async function searchDictionary() {
     const language = document.getElementById('dictLanguage').value;
-    const category = document.getElementById('dictCategory').value;
+    const searchTerm = document.getElementById('dictSearch').value.trim();
     
-    showLoading('Loading dictionary...');
+    if (!searchTerm) {
+        document.getElementById('dictionaryContent').innerHTML = '';
+        return;
+    }
     
     const response = await fetch('/api/dictionary', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({language, category})
+        body: JSON.stringify({language, searchTerm})
     });
     
     const data = await response.json();
@@ -558,16 +646,6 @@ async function translateCode() {
     document.getElementById('translateResult').innerHTML = `<pre>${data.result}</pre>`;
 }
 
-function filterLanguages() {
-    const search = document.getElementById('searchToLang').value.toLowerCase();
-    const select = document.getElementById('toLang');
-    const options = select.getElementsByTagName('option');
-    
-    for (let i = 0; i < options.length; i++) {
-        const text = options[i].text.toLowerCase();
-        options[i].style.display = text.includes(search) ? '' : 'none';
-    }
-}
 
 async function showHistory() {
     document.getElementById('historyModal').classList.add('active');
