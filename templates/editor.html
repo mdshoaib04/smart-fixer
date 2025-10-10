@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Code Reviewer - Editor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/eclipse.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/ruby/ruby.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/php/php.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/swift/swift.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/go/go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/rust/rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/r/r.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/shell/shell.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body class="editor-page">
+    <div class="top-bar">
+        <div class="top-left">
+            <div class="menu-icon" onclick="toggleMenu()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="5" r="1"/>
+                    <circle cx="12" cy="12" r="1"/>
+                    <circle cx="12" cy="19" r="1"/>
+                </svg>
+            </div>
+            
+            <div class="dropdown-menu" id="dropdownMenu">
+                <a href="#" onclick="showDictionary(); return false;">📚 Dictionary</a>
+                <a href="#" onclick="showTranslate(); return false;">🔄 Translate Code</a>
+                <a href="#" onclick="showHistory(); return false;">📜 Code History</a>
+            </div>
+        </div>
+        
+        <div class="top-right">
+            <div class="theme-toggle" onclick="toggleTheme()">
+                <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </div>
+            
+            <div class="chat-icon" onclick="toggleChat()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+            </div>
+            
+            <div class="profile-logo" onclick="toggleProfile()">
+                <span id="userInitials">{{ user.first_name[0] if user.first_name else 'U' }}{{ user.last_name[0] if user.last_name else '' }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="main-interface">
+        <div class="left-panel">
+            <div class="profession-selector">
+                <select id="professionSelect" onchange="updateProfession()">
+                    <option value="student">👨‍🎓 Student</option>
+                    <option value="professor">👨‍🏫 Professor</option>
+                    <option value="frontend">💻 Frontend Developer</option>
+                    <option value="backend">⚙️ Backend Developer</option>
+                    <option value="software_engineer">👨‍💼 Software Engineer</option>
+                    <option value="data_scientist">📊 Data Scientist</option>
+                    <option value="devops">🔧 DevOps Engineer</option>
+                    <option value="competitive_programmer">🏆 Competitive Programmer</option>
+                </select>
+            </div>
+            
+            <div class="code-editor-container">
+                <textarea id="codeEditor"></textarea>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="action-btn review-btn" onclick="reviewCode()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 11l3 3L22 4"/>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    </svg>
+                    Review
+                </button>
+                <button class="action-btn explain-btn" onclick="explainCode()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    Explain
+                </button>
+                <button class="action-btn compile-btn" onclick="compileCode()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="16 18 22 12 16 6"/>
+                        <polyline points="8 6 2 12 8 18"/>
+                    </svg>
+                    Compile
+                </button>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div class="output-container">
+                <div class="output-header">AI Output</div>
+                <div class="output-content" id="outputContent">
+                    <p class="placeholder">Click Review, Explain, or Compile to see AI analysis...</p>
+                </div>
+            </div>
+            
+            <div class="qna-container">
+                <input type="text" id="qnaInput" placeholder="Ask a question about your code..." onkeypress="handleQnAEnter(event)">
+                <button onclick="askQuestion()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="profileModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('profileModal')">&times;</span>
+            <div class="profile-tabs">
+                <button class="tab-btn active" onclick="showTab('details')">Personal Details</button>
+                <button class="tab-btn" onclick="showTab('posts')">Posts</button>
+                <button class="tab-btn" onclick="showTab('friends')">Friends</button>
+                <button class="tab-btn" onclick="showTab('notifications')">Notifications</button>
+                <button class="tab-btn" onclick="showTab('time')">Time Spent</button>
+            </div>
+            
+            <div id="detailsTab" class="tab-content active">
+                <div class="profile-details">
+                    <img src="{{ user.profile_image_url or 'https://via.placeholder.com/100' }}" alt="Profile" class="profile-image">
+                    <h3>{{ user.first_name }} {{ user.last_name }}</h3>
+                    <p>{{ user.email }}</p>
+                    <textarea id="bioInput" placeholder="Add a bio...">{{ user.bio or '' }}</textarea>
+                    <button onclick="updateProfile()">Update Profile</button>
+                </div>
+            </div>
+            
+            <div id="postsTab" class="tab-content">
+                <button onclick="showPostModal()">Share Code</button>
+                <div id="postsList"></div>
+            </div>
+            
+            <div id="friendsTab" class="tab-content">
+                <input type="email" id="friendEmail" placeholder="Enter friend's email">
+                <button onclick="sendFriendRequest()">Send Request</button>
+                <div id="friendsList"></div>
+            </div>
+            
+            <div id="notificationsTab" class="tab-content">
+                <div id="notificationsList"></div>
+            </div>
+            
+            <div id="timeTab" class="tab-content">
+                <div id="contributionGrid"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="chatModal">
+        <div class="modal-content chat-content">
+            <span class="close" onclick="closeModal('chatModal')">&times;</span>
+            <h3>Chat / Messenger</h3>
+            <div id="friendsListChat"></div>
+            <div id="chatMessages"></div>
+            <div class="chat-input-container">
+                <input type="text" id="chatInput" placeholder="Type a message...">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="dictionaryModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('dictionaryModal')">&times;</span>
+            <h3>Code Dictionary & Templates</h3>
+            <select id="dictLanguage">
+                <option value="Python">Python</option>
+                <option value="JavaScript">JavaScript</option>
+                <option value="Java">Java</option>
+                <option value="C++">C++</option>
+                <option value="C">C</option>
+                <option value="C#">C#</option>
+                <option value="Ruby">Ruby</option>
+                <option value="PHP">PHP</option>
+                <option value="Swift">Swift</option>
+                <option value="TypeScript">TypeScript</option>
+                <option value="Go">Go</option>
+                <option value="Kotlin">Kotlin</option>
+                <option value="Rust">Rust</option>
+                <option value="Scala">Scala</option>
+                <option value="Perl">Perl</option>
+                <option value="Dart">Dart</option>
+                <option value="Haskell">Haskell</option>
+                <option value="MATLAB">MATLAB</option>
+                <option value="R">R</option>
+                <option value="SQL">SQL</option>
+                <option value="Shell">Shell</option>
+            </select>
+            <select id="dictCategory">
+                <option value="logic">Logic Templates</option>
+                <option value="DSA">Data Structures & Algorithms</option>
+                <option value="practical">Practical Code Snippets</option>
+            </select>
+            <button onclick="getDictionary()">Get Templates</button>
+            <div id="dictionaryContent"></div>
+        </div>
+    </div>
+    
+    <div class="modal" id="translateModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('translateModal')">&times;</span>
+            <h3>Translate Code</h3>
+            <div class="translate-container">
+                <div class="translate-from">
+                    <label>From: <span id="fromLang">Python</span></label>
+                </div>
+                <div class="translate-to">
+                    <label>To:</label>
+                    <input type="text" id="searchToLang" placeholder="Search language..." onkeyup="filterLanguages()">
+                    <select id="toLang">
+                        <option value="Python">Python</option>
+                        <option value="JavaScript">JavaScript</option>
+                        <option value="Java">Java</option>
+                        <option value="C++">C++</option>
+                        <option value="C">C</option>
+                        <option value="C#">C#</option>
+                        <option value="Ruby">Ruby</option>
+                        <option value="PHP">PHP</option>
+                        <option value="Swift">Swift</option>
+                        <option value="TypeScript">TypeScript</option>
+                        <option value="Go">Go</option>
+                        <option value="Kotlin">Kotlin</option>
+                        <option value="Rust">Rust</option>
+                        <option value="Scala">Scala</option>
+                        <option value="Perl">Perl</option>
+                        <option value="Dart">Dart</option>
+                        <option value="Haskell">Haskell</option>
+                        <option value="MATLAB">MATLAB</option>
+                        <option value="R">R</option>
+                        <option value="SQL">SQL</option>
+                        <option value="Shell">Shell</option>
+                        <option value="Objective-C">Objective-C</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="translateCode()">Translate</button>
+            <div id="translateResult"></div>
+        </div>
+    </div>
+    
+    <div class="modal" id="historyModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('historyModal')">&times;</span>
+            <h3>Code History</h3>
+            <div id="historyContent"></div>
+        </div>
+    </div>
+    
+    <div class="modal" id="postModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('postModal')">&times;</span>
+            <h3>Share Code</h3>
+            <textarea id="postDescription" placeholder="Describe your code..."></textarea>
+            <button onclick="createPost()">Share</button>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+</body>
+</html>
