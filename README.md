@@ -8,7 +8,110 @@
 
 SmartFixer is a comprehensive AI-powered code review and social coding platform that helps developers improve their programming skills through intelligent analysis, real-time collaboration, and community interaction. Built with modern web technologies and powered by Google's Gemini AI, it provides professional-grade code analysis tailored to different skill levels and programming roles.
 
-## ✨ Key Features
+## ⚡ Quick Start
+
+### 1. Install Dependencies
+```bash
+# Install required packages
+pip install -r requirements.txt
+
+# Or use the setup script
+python setup.py
+```
+
+### 2. Configure Environment
+Create a `.env` file with your configuration:
+
+```env
+# Database Configuration (SQLite by default)
+DATABASE_URL=sqlite:///smartfixer.db
+
+# Security
+SESSION_SECRET=your-secure-random-key-here
+
+# AI Integration (Choose one provider)
+GEMINI_API_KEY=your-gemini-api-key
+# OPENAI_API_KEY=your-openai-api-key
+# HUGGINGFACE_API_KEY=your-huggingface-api-key
+# DEEPSEEK_API_KEY=your-deepseek-api-key
+# OPENROUTER_API_KEY=your-openrouter-api-key
+```
+
+### 3. Run Application
+```bash
+# Direct method
+python app.py
+
+# Or using the launcher
+python main.py
+```
+
+Access SmartFixer at:
+- **Local**: http://localhost:5000
+- **Network**: http://[your-ip]:5000
+
+## 🛠️ Technology Stack
+
+### Backend Architecture
+- **Flask**: Modern Python web framework with RESTful API design
+- **SQLAlchemy**: Advanced ORM with SQLite database integration
+- **Flask-Login**: Secure user session management
+- **Flask-SocketIO**: Real-time WebSocket communication for instant messaging and presence updates
+- **Google Gemini AI**: State-of-the-art AI model for code analysis
+- **OAuth Integration**: Secure authentication with Google and GitHub
+
+### Frontend Technologies
+- **CodeMirror**: Professional code editor with syntax highlighting
+- **Socket.IO**: Real-time bidirectional communication
+- **Responsive CSS**: Mobile-first design with modern styling
+
+## 📁 Project Structure
+
+```
+SmartFixer/
+├── app.py                 # Main Flask application
+├── database.py           # Database configuration and models
+├── models.py             # SQLAlchemy database models
+├── oauth_auth.py         # OAuth authentication system
+├── gemini_helper.py      # Google Gemini AI integration
+├── ai_helper.py          # AI abstraction layer
+├── routes.py             # API routes and endpoints
+├── main.py               # Application entry point
+├── setup.py              # Setup script
+├── requirements.txt      # Python dependencies
+├── templates/            # HTML templates
+│   ├── welcome.html      # Landing page
+│   ├── auth.html         # Authentication page
+│   ├── upload_or_write.html  # Code input interface
+│   ├── editor.html       # Main code editor
+│   ├── profile.html      # User profiles
+│   ├── posts.html        # Social feed
+│   ├── explore.html      # Content discovery
+│   ├── notifications.html # Activity notifications
+│   ├── time_tracker.html # Progress tracking
+│   └── chat.html         # Real-time messaging
+├── static/
+│   ├── css/
+│   │   ├── style.css     # Main stylesheet
+│   │   ├── posts.css     # Social features styling
+│   │   ├── profile.css   # Profile page styling
+│   │   ├── explore.css   # Discovery page styling
+│   │   ├── chat.css      # Chat interface styling
+│   │   └── time_tracker.css # Activity grid styling
+│   └── js/
+│       └── editor.js     # Frontend JavaScript
+└── requirements.txt      # Python dependencies
+```
+
+## 🔧 Getting Your API Keys
+
+### Google Gemini API
+1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new project or select existing one
+3. Generate API key and add to your `.env` file
+4. **Free tier**: 60 requests per minute
+
+## 🎯 Key Features
 
 ### 🤖 AI-Powered Code Analysis
 - **Smart Code Review**: Comprehensive analysis covering code quality, bugs, security vulnerabilities, and performance optimization
@@ -45,206 +148,6 @@ SmartFixer is a comprehensive AI-powered code review and social coding platform 
 - **Professor Mode**: Academic insights and teaching-oriented analysis
 - **Developer Specializations**: Frontend, Backend, Full-Stack, DevOps, Data Science
 - **Competitive Programming**: Algorithm optimization and performance analysis
-
-## 🛠️ Technology Stack
-
-### Backend Architecture
-- **Flask**: Modern Python web framework with RESTful API design
-- **SQLAlchemy**: Advanced ORM with PostgreSQL database integration
-- **Flask-Login**: Secure user session management
-- **Flask-SocketIO**: Real-time WebSocket communication for instant messaging and presence updates
-- **Google Gemini AI**: State-of-the-art AI model for code analysis (gemini-2.0-flash-exp)
-- **OAuth Integration**: Secure authentication with Google and GitHub
-
-### Frontend Technologies
-- **CodeMirror**: Professional code editor with syntax highlighting for 20+ languages
-- **Socket.IO**: Real-time bidirectional communication
-- **Responsive CSS**: Mobile-first design with modern 3D animations
-- **Theme System**: Dynamic dark/light mode with CSS custom properties
-
-### Database Design
-- **User Management**: Comprehensive profile and authentication system
-- **Social Features**: Posts, comments, likes, and friend relationships
-- **Real-time Messaging**: Scalable chat system with message history
-- **Code Analytics**: Complete tracking of code submissions and AI analysis
-- **Activity Monitoring**: Time tracking and progress analytics
-
-## 📋 Prerequisites
-
-Before setting up SmartFixer, ensure you have:
-
-- **Python 3.11+** (Latest stable version recommended)
-- **PostgreSQL Database** (Local or cloud-hosted)
-- **Google Gemini API Key** (Free tier available)
-- **OAuth Credentials** (Google/GitHub - optional but recommended)
-
-## ⚡ Quick Start
-
-### 1. Clone and Setup
-```bash
-git clone https://github.com/yourusername/smartfixer.git
-cd smartfixer
-pip install -r requirements.txt
-```
-
-### 2. Environment Configuration
-Create a `.env` file with your configuration:
-
-```env
-# Database Configuration
-DATABASE_URL=postgresql://username:password@localhost:5432/smartfixer
-
-# Security
-SESSION_SECRET=your-secure-random-key-here
-
-# AI Integration
-GEMINI_API_KEY=your-gemini-api-key
-
-# OAuth (Optional)
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
-```
-
-### 3. Database Setup
-```bash
-# Database tables are created automatically on first run
-python app.py
-```
-
-### 4. Launch Application
-```bash
-python app.py
-```
-
-Access SmartFixer at:
-- **Local**: http://localhost:5000
-- **Network**: http://[your-ip]:5000
-
-## 🎯 Getting Your API Keys
-
-### Google Gemini API
-1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create a new project or select existing one
-3. Generate API key and add to your `.env` file
-4. **Free tier**: 60 requests per minute
-
-### OpenAI API (Alternative)
-1. Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Create an account and generate an API key
-3. Add to your `.env` file as `OPENAI_API_KEY`
-
-### Hugging Face API (Alternative)
-1. Visit [Hugging Face Tokens](https://huggingface.co/settings/tokens)
-2. Create a new token with read access
-3. Add to your `.env` file as `HUGGINGFACE_API_KEY`
-
-### DeepSeek API (Alternative)
-1. Visit [DeepSeek Platform](https://platform.deepseek.com/apiKeys)
-2. Create an account and generate an API key
-3. Add to your `.env` file as `DEEPSEEK_API_KEY`
-
-### OpenRouter API (Alternative)
-1. Visit [OpenRouter Settings](https://openrouter.ai/settings/keys)
-2. Create an account and generate an API key
-3. Add to your `.env` file as `OPENROUTER_API_KEY`
-
-## 🔧 Multiple AI Provider Support
-
-SmartFixer now supports multiple AI providers through a unified abstraction layer:
-
-### Configuration
-Configure your preferred AI provider in the `.env` file:
-
-```env
-# Choose ONE provider by uncommenting the appropriate key
-
-# For Gemini (Google AI Studio) - Default
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# For OpenAI (ChatGPT)
-# OPENAI_API_KEY=your_openai_api_key_here
-
-# For Hugging Face
-# HUGGINGFACE_API_KEY=your_huggingface_api_key_here
-
-# For DeepSeek
-# DEEPSEEK_API_KEY=your_deepseek_api_key_here
-
-# For OpenRouter
-# OPENROUTER_API_KEY=your_openrouter_api_key_here
-```
-
-### Provider Features
-- **Gemini**: Google's most capable AI model, excellent for code analysis
-- **OpenAI**: Industry-standard models with consistent performance
-- **Hugging Face**: Access to thousands of open-source models
-- **DeepSeek**: High-performance models with competitive pricing
-- **OpenRouter**: Single API access to 100+ models from different providers
-
-### Switching Providers
-To switch between providers:
-1. Comment out the current provider's API key
-2. Uncomment and add your new provider's API key
-3. Restart the application
-
-All AI features will work seamlessly with any configured provider.
-
-## 📁 Project Structure
-
-```
-SmartFixer/
-├── app.py                 # Main Flask application
-├── database.py           # Database configuration and models
-├── models.py             # SQLAlchemy database models
-├── oauth_auth.py         # OAuth authentication system
-├── gemini_helper.py      # Google Gemini AI integration
-├── routes.py             # API routes and endpoints
-├── main.py               # Application entry point
-├── templates/            # HTML templates
-│   ├── welcome.html      # Landing page
-│   ├── auth.html         # Authentication page
-│   ├── upload_or_write.html  # Code input interface
-│   ├── editor.html       # Main code editor
-│   ├── profile.html      # User profiles
-│   ├── posts.html        # Social feed
-│   ├── explore.html      # Content discovery
-│   ├── notifications.html # Activity notifications
-│   ├── time_tracker.html # Progress tracking
-│   └── chat.html         # Real-time messaging
-├── static/
-│   ├── css/
-│   │   ├── style.css     # Main stylesheet
-│   │   ├── posts.css     # Social features styling
-│   │   ├── profile.css   # Profile page styling
-│   │   ├── explore.css   # Discovery page styling
-│   │   ├── chat.css      # Chat interface styling
-│   │   └── time_tracker.css # Activity grid styling
-│   └── js/
-│       └── editor.js     # Frontend JavaScript
-└── requirements.txt      # Python dependencies
-```
-
-## 🎨 User Interface Features
-
-### Design Philosophy
-- **Clean & Modern**: Minimalist interface focused on productivity
-- **Responsive Design**: Seamless experience across all devices
-- **3D Animations**: Engaging hover effects and smooth transitions
-- **Theme Consistency**: Unified color scheme with instant theme switching
-- **Professional Editor**: VS Code-inspired interface with keyboard shortcuts
-
-### Supported Programming Languages
-
-**Web Technologies:** HTML, CSS, JavaScript, TypeScript, PHP
-**Backend Languages:** Python, Java, C#, Ruby, Go, Rust, Node.js
-**Systems Programming:** C, C++, Objective-C
-**Mobile Development:** Swift, Kotlin, Dart (Flutter)
-**Data Science:** R, MATLAB, Scala
-**Functional Programming:** Haskell, F#
-**Scripting:** Shell/Bash, PowerShell, Perl
-**Database:** SQL, MongoDB Query Language
 
 ## 🔧 API Documentation
 

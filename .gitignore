@@ -1,7 +1,12 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -19,6 +24,8 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Environments
 .env
 .venv
 env/
@@ -26,9 +33,19 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+
+# Logs
 *.log
+
+# Flask
 instance/
 .webassets-cache
+
+# Testing
 .coverage
 .coverage.*
 .cache
@@ -37,12 +54,61 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+
+# Database
 *.db
 *.sqlite
+
+# OS generated files
 .DS_Store
-node_modules/
-.vscode/
-.idea/
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
 *.swp
 *.swo
 *~
+
+# Local files not to be committed
+*.local
+*.backup
+*.old
+*.bak
+
+# Distribution files
+*.exe
+*.zip
+*.tar.gz
+
+# Test files
+test*
+
+# Configuration files
+*.spec
+
+# Uploaded files
+static/uploads/*
+!static/uploads/.gitkeep
+
+# Node modules
+node_modules/
+
+# Tesseract setup files
+tesseract*.exe
+
+# Downloaded files
+downloaded_app.bat
+test-downloaded*
+
+# Backup files
+*.backup
+*.old
+
+# Local database backups
+*.db.backup
+site.db.backup
+smartfixer.db.backup
