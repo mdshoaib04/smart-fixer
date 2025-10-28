@@ -7,8 +7,43 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body class="upload-write-page">
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-left">
+
+        </div>
+        <div class="nav-center">
+            <h1 class="website-name nav-title">Smart Code Reviewer</h1>
+        </div>
+        <div class="nav-right">
+            <button class="nav-button theme-toggle" id="themeToggle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="themeIcon">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+            </button>
+            <button class="nav-button logout-button" onclick="logout()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Logout
+            </button>
+        </div>
+    </nav>
+
     <div class="options-container">
-        <h1 class="website-name">Smart Code Reviewer</h1>
+        <div class="welcome-message-above-upload">
+            <h2>Hello, {{ user.first_name or user.username }}! What do you want to do today?</h2>
+        </div>
         
         <div class="options-grid">
             <div class="option-card" onclick="triggerFileUpload()">
@@ -20,9 +55,13 @@
                     </svg>
                 </div>
                 <h2>Upload Code</h2>
-                <p>Upload any code file (.py, .js, .java, .cpp, .cs, etc.)</p>
+                <p>Upload any files, images or PDFs with code</p>
+                <div class="upload-hints">
+                    <p class="hint-text">Only code files or images with code are supported.</p>
+                    <p class="hint-text">Avoid uploading random images or documents.</p>
+                </div>
             </div>
-            
+
             <div class="option-card" onclick="goToEditor()">
                 <div class="card-icon">
                     <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -34,52 +73,177 @@
                 <p>Write or paste your code in our VS Code-style editor</p>
             </div>
         </div>
-        
-        <input type="file" id="fileInput" accept=".py,.js,.java,.cpp,.c,.cs,.ts,.tsx,.jsx,.rb,.php,.swift,.go,.rs,.kt,.scala,.pl,.dart,.hs,.m,.r,.sql,.sh,.html,.css" style="display: none;" onchange="handleFileUpload(event)">
+
+        <input type="file" id="fileInput" style="display: none;" onchange="handleFileUpload(event)">
     </div>
-    
+
     <div class="animated-bg">
         <div class="shape shape-1"></div>
         <div class="shape shape-2"></div>
         <div class="shape shape-3"></div>
     </div>
-    
+
     <script>
+        // Theme toggle functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = document.getElementById('themeIcon');
+            
+            // Check for saved theme or default to light
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            updateThemeIcon(currentTheme);
+            
+            themeToggle.addEventListener('click', function() {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeIcon(newTheme);
+            });
+            
+            function updateThemeIcon(theme) {
+                if (theme === 'dark') {
+                    themeIcon.innerHTML = `
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    `;
+                } else {
+                    themeIcon.innerHTML = `
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    `;
+                }
+            }
+        });
+
         function triggerFileUpload() {
             document.getElementById('fileInput').click();
         }
-        
+
         function goToEditor() {
             window.location.href = '/editor';
         }
-        
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                // Make a request to the logout endpoint which will properly log out the user
+                // and then redirect to the starting page
+                window.location.href = '/logout';
+            }
+        }
+
+        // Removed goBack function as back button is removed
+
         async function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
+
+            // Get file extension
+            const fileExtension = file.name.split('.').pop().toLowerCase();
             
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                const code = e.target.result;
+            // Define accepted file types
+            const codeFileExtensions = ['py', 'js', 'c', 'cpp', 'java', 'html', 'css', 'ts', 'bash', 'php', 'rb', 'go', 'rs', 'swift', 'kt', 'scala', 'pl', 'dart', 'hs', 'm', 'r', 'sql', 'sh'];
+            const imageFileExtensions = ['jpg', 'jpeg', 'png'];
+            const pdfFileExtensions = ['pdf'];
+            
+            // Check if it's a code file
+            if (codeFileExtensions.includes(fileExtension)) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const code = e.target.result;
+
+                    if (!code || code.trim() === '') {
+                        alert('⚠ invalid code file.');
+                        return;
+                    }
+
+                    const response = await fetch('/api/detect-language', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({code: code})
+                    });
+
+                    const data = await response.json();
+
+                    sessionStorage.setItem('uploadedCode', code);
+                    sessionStorage.setItem('detectedLanguage', data.language);
+                    window.location.href = '/editor';
+                };
+                reader.readAsText(file);
+            }
+            // Check if it's an image file
+            else if (imageFileExtensions.includes(fileExtension)) {
+                // Send to backend for OCR processing
+                const formData = new FormData();
+                formData.append('image', file);
                 
-                if (!code || code.trim() === '') {
-                    alert('The file is empty or corrupted. Please upload a valid code file.');
-                    return;
+                try {
+                    const response = await fetch('/api/extract-code-from-image', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        alert('⚠ Can\'t take input of this image. Try again with an image that contains programming code.');
+                        return;
+                    }
+                    
+                    if (!data.code || data.code.trim() === '') {
+                        alert('⚠ Can\'t take input of this image. Try again with an image that contains programming code.');
+                        return;
+                    }
+                    
+                    sessionStorage.setItem('uploadedCode', data.code);
+                    sessionStorage.setItem('detectedLanguage', data.language);
+                    window.location.href = '/editor';
+                } catch (error) {
+                    alert('⚠ Can\'t take input of this image. Try again with an image that contains programming code.');
                 }
+            }
+            // Check if it's a PDF file
+            else if (pdfFileExtensions.includes(fileExtension)) {
+                // Send to backend for PDF processing
+                const formData = new FormData();
+                formData.append('pdf', file);
                 
-                const response = await fetch('/api/detect-language', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({code: code})
-                });
-                
-                const data = await response.json();
-                
-                sessionStorage.setItem('uploadedCode', code);
-                sessionStorage.setItem('detectedLanguage', data.language);
-                
-                window.location.href = '/editor';
-            };
-            reader.readAsText(file);
+                try {
+                    const response = await fetch('/api/extract-code-from-pdf', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        alert('⚠ Can\'t take input of this file. Try again with a file that contains programming code.');
+                        return;
+                    }
+                    
+                    if (!data.code || data.code.trim() === '') {
+                        alert('⚠ Can\'t take input of this file. Try again with a file that contains programming code.');
+                        return;
+                    }
+                    
+                    sessionStorage.setItem('uploadedCode', data.code);
+                    sessionStorage.setItem('detectedLanguage', data.language);
+                    window.location.href = '/editor';
+                } catch (error) {
+                    alert('⚠ Can\'t take input of this file. Try again with a file that contains programming code.');
+                }
+            }
+            // Reject all other file types
+            else {
+                alert('⚠ Can\'t take this file as input. Give a code file with an extension like .py, .js, .c, etc.');
+            }
         }
     </script>
 </body>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flexible Time Tracker - SmartFixer</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/time_tracker.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body data-theme="light">
+    <!-- Navigation Bar -->
+    <nav class="nav-bar">
+        <div class="nav-left">
+            <button class="back-btn" onclick="goBack()">
+                <span>←</span> Back
+            </button>
+            <div class="brand-logo">SmartFixer</div>
+        </div>
+        <div class="nav-right">
+            <button class="theme-toggle">
+                <span class="theme-icon moon">🌙</span>
+                <span class="theme-icon sun" style="display: none;">☀️</span>
+            </button>
+        </div>
+    </nav>
+
+    <div class="time-tracker-container">
+        <!-- Flexible Time Tracker Interface -->
+        <div class="time-tracker-interface">
+            <!-- Header with summary and controls -->
+            <div class="time-tracker-header">
+                <div>
+                    <h2>Time Tracking</h2>
+                    <p id="totalContributions">0 contributions in the last year</p>
+                </div>
+                <div class="graph-actions">
+                    <button class="graph-view-toggle active" data-view="heatmap">Heatmap</button>
+                    <button class="graph-view-toggle" data-view="line">Line Chart</button>
+                    <button class="graph-view-toggle" data-view="comparison">Compare</button>
+                    <div class="settings-dropdown-container">
+                        <button class="settings-dropdown-btn" id="settingsBtn">
+                            <span>⚙</span> Settings
+                        </button>
+                        <div class="settings-dropdown-menu" id="settingsMenu">
+                            <div class="settings-dropdown-item" data-action="compare_friend">
+                                <span>👥</span> Compare with Friend
+                            </div>
+                            <div class="settings-dropdown-item" data-action="weekly_average">
+                                <span>📈</span> Show Weekly Average
+                            </div>
+                            <div class="settings-dropdown-item" data-action="longest_streak">
+                                <span>🔥</span> Show Longest Streak
+                            </div>
+                            <div class="settings-dropdown-item" data-action="highlight_active">
+                                <span>🌟</span> Highlight Active Days
+                            </div>
+                            <div class="settings-dropdown-item" data-action="monthly_stats">
+                                <span>📊</span> Show Monthly Stats
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graph Section -->
+            <div class="time-tracker-graph">
+                <div class="graph-content">
+                    <!-- Heatmap View (Default) -->
+                    <div class="graph-view active" id="heatmapView">
+                        <div class="graph-container-wrapper">
+                            <div class="contribution-graph">
+                                <div class="graph-container">
+                                    <!-- Month Labels -->
+                                    <div class="month-labels" id="monthLabels">
+                                        <!-- Month labels will be populated by JavaScript -->
+                                    </div>
+                                    
+                                    <!-- Contribution Grid -->
+                                    <div class="contribution-grid" id="contributionGrid">
+                                        <!-- Grid will be populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Contribution Legend -->
+                            <div class="contribution-legend">
+                                <span>Less</span>
+                                <div class="legend-colors">
+                                    <div class="legend-color level-0" title="No activity"></div>
+                                    <div class="legend-color level-1" title="1-3 hours"></div>
+                                    <div class="legend-color level-2" title="4-6 hours"></div>
+                                    <div class="legend-color level-3" title="7-9 hours"></div>
+                                    <div class="legend-color level-4" title="10+ hours"></div>
+                                </div>
+                                <span>More</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Line Chart View -->
+                    <div class="graph-view" id="lineView" style="display: none;">
+                        <canvas id="contributionLineChart"></canvas>
+                    </div>
+
+                    <!-- Comparison View -->
+                    <div class="graph-view" id="comparisonView" style="display: none;">
+                        <div class="comparison-graphs">
+                            <div class="graph-half">
+                                <h3>Your Contributions</h3>
+                                <div class="month-labels" id="userMonthLabels"></div>
+                                <div class="contribution-grid" id="userContributionGrid"></div>
+                            </div>
+                            <div class="graph-half">
+                                <h3>Friend's Contributions</h3>
+                                <div class="month-labels" id="friendMonthLabels"></div>
+                                <div class="contribution-grid" id="friendContributionGrid"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="time-tracker-stats">
+                <div class="stat-card">
+                    <div class="stat-value-large" id="todayHours">0</div>
+                    <div class="stat-label-small">Today (hrs)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value-large" id="weekHours">0</div>
+                    <div class="stat-label-small">This Week (hrs)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value-large" id="monthHours">0</div>
+                    <div class="stat-label-small">This Month (hrs)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value-large" id="yearContributions">0</div>
+                    <div class="stat-label-small"><span id="currentYear">2025</span> (contribs)</div>
+                </div>
+            </div>
+
+            <!-- Actions Section -->
+            <div class="time-tracker-actions">
+                <button class="action-button" id="exportDataBtn">
+                    <span>📤</span> Export Data
+                </button>
+                <button class="action-button secondary" id="resetDataBtn">
+                    <span>🔄</span> Reset Data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/time_tracker.js"></script>
+    <script>
+        function goBack() {
+            // Go back to the editor page
+            window.location.href = '/editor';
+        }
+    </script>
+</body>
+</html>

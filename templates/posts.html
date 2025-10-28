@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Posts - SmartFixer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/posts.css') }}">
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-left">
+            <button class="back-btn" onclick="goBack()" title="Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5"/>
+                    <path d="M12 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            <div class="brand-logo">My Posts</div>
+        </div>
+        
+        <div class="nav-right">
+            <a href="/notifications" class="notification-icon" title="Notifications">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            </a>
+            
+            <div class="theme-toggle" onclick="toggleTheme()" title="Theme">
+                <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </div>
+            
+            <button class="create-post-btn" onclick="showCreatePost()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="posts-container">
+        <div class="posts-feed" id="postsFeed">
+            <!-- Posts will be loaded here -->
+            <div class="empty-state">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/>
+                </svg>
+                <h3>Share your first code</h3>
+                <p>When you post code, it will appear here and on your profile for others to see.</p>
+                <button onclick="showCreatePost()" class="start-posting-btn">Create your first post</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Post Modal -->
+    <div class="modal" id="createPostModal">
+        <div class="modal-content create-post-modal">
+            <div class="modal-header">
+                <h3>Share Code</h3>
+                <button class="close-btn" onclick="closeCreatePost()">&times;</button>
+            </div>
+            
+            <div class="create-post-form">
+                <div class="user-info">
+                    <img src="{{ user.profile_image_url or 'https://via.placeholder.com/40' }}" alt="Profile" class="user-avatar">
+                    <span class="user-name">{{ user.first_name }} {{ user.last_name }}</span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="postTitle">Code Title</label>
+                    <input type="text" id="postTitle" placeholder="What's your code about?">
+                </div>
+                
+                <div class="form-group">
+                    <label for="postDescription">Description</label>
+                    <textarea id="postDescription" placeholder="Describe your code, what it does, or ask for feedback..." rows="3"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="postCode">Code</label>
+                    <textarea id="postCode" placeholder="Paste your code here..." rows="8"></textarea>
+                    <div id="codeError" class="error-message" style="color: #e74c3c; font-size: 0.9rem; margin-top: 0.5rem; display: none;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="postLanguage">Language</label>
+                    <select id="postLanguage">
+                        <option value="C">C</option>
+                        <option value="C#">C#</option>
+                        <option value="C++">C++</option>
+                        <option value="Clojure">Clojure</option>
+                        <option value="Dart">Dart</option>
+                        <option value="Elixir">Elixir</option>
+                        <option value="Go">Go</option>
+                        <option value="Haskell">Haskell</option>
+                        <option value="Java">Java</option>
+                        <option value="JavaScript">JavaScript</option>
+                        <option value="Julia">Julia</option>
+                        <option value="Kotlin">Kotlin</option>
+                        <option value="Lua">Lua</option>
+                        <option value="MATLAB">MATLAB</option>
+                        <option value="Nim">Nim</option>
+                        <option value="Perl">Perl</option>
+                        <option value="PHP">PHP</option>
+                        <option value="Python">Python</option>
+                        <option value="R">R</option>
+                        <option value="Ruby">Ruby</option>
+                        <option value="Rust">Rust</option>
+                        <option value="Scala">Scala</option>
+                        <option value="Swift">Swift</option>
+                        <option value="TypeScript">TypeScript</option>
+                        <option value="VB.NET">VB.NET</option>
+                        <option value="Zig">Zig</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-actions">
+                    <button class="cancel-btn" onclick="closeCreatePost()">Cancel</button>
+                    <button class="post-btn" onclick="createPost()">Post</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Navigation history management
+        let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
+        
+        // Language validation variables
+        let validationTimeout;
+        let lastValidatedCode = '';
+        let lastValidatedLanguage = '';
+        
+        function updateNavigationHistory() {
+            const currentPath = window.location.pathname;
+            if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
+                navigationHistory.push(currentPath);
+                if (navigationHistory.length > 10) {
+                    navigationHistory.shift();
+                }
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+            }
+        }
+        
+        function goBack() {
+            // Go back to the editor page
+            window.location.href = '/editor';
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            if (newTheme === 'dark') {
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            } else {
+                document.querySelector('.moon').style.display = 'block';
+                document.querySelector('.sun').style.display = 'none';
+            }
+        }
+
+        function showCreatePost() {
+            document.getElementById('createPostModal').style.display = 'flex';
+            // Clear any previous error messages when opening the modal
+            clearCodeError();
+        }
+
+        function closeCreatePost() {
+            document.getElementById('createPostModal').style.display = 'none';
+            // Clear form
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postDescription').value = '';
+            document.getElementById('postCode').value = '';
+            document.getElementById('postLanguage').value = 'Python';
+            // Clear any error messages
+            clearCodeError();
+        }
+        
+        // Clear error message
+        function clearCodeError() {
+            const errorElement = document.getElementById('codeError');
+            if (errorElement) {
+                errorElement.style.display = 'none';
+                errorElement.textContent = '';
+            }
+        }
+        
+        // Show error message
+        function showCodeError(message) {
+            const errorElement = document.getElementById('codeError');
+            if (errorElement) {
+                errorElement.textContent = message;
+                errorElement.style.display = 'block';
+            }
+        }
+        
+        // Validate code language in real-time
+        async function validateCodeLanguage() {
+            const code = document.getElementById('postCode').value.trim();
+            const selectedLanguage = document.getElementById('postLanguage').value;
+            
+            // Clear error if no code
+            if (!code) {
+                clearCodeError();
+                return;
+            }
+            
+            // Skip validation if code and language haven't changed
+            if (code === lastValidatedCode && selectedLanguage === lastValidatedLanguage) {
+                return;
+            }
+            
+            // Update last validated values
+            lastValidatedCode = code;
+            lastValidatedLanguage = selectedLanguage;
+            
+            try {
+                const response = await fetch('/api/detect-language', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: code })
+                });
+                
+                const result = await response.json();
+                const detectedLanguage = result.language;
+                
+                // Check if detected language matches selected language
+                if (detectedLanguage !== selectedLanguage && selectedLanguage !== 'Other') {
+                    showCodeError('Select correct language or invalid code');
+                } else {
+                    clearCodeError();
+                }
+            } catch (error) {
+                // In case of API error, we don't show an error to the user
+                console.error('Language detection error:', error);
+                clearCodeError();
+            }
+        }
+        
+        // Set up real-time validation
+        function setupRealTimeValidation() {
+            const codeElement = document.getElementById('postCode');
+            const languageElement = document.getElementById('postLanguage');
+            
+            if (codeElement && languageElement) {
+                // Validate when user types in code area
+                codeElement.addEventListener('input', function() {
+                    // Debounce validation to avoid too many API calls
+                    clearTimeout(validationTimeout);
+                    validationTimeout = setTimeout(validateCodeLanguage, 500);
+                });
+                
+                // Validate when user changes language selection
+                languageElement.addEventListener('change', validateCodeLanguage);
+            }
+        }
+
+        async function createPost() {
+            const title = document.getElementById('postTitle').value.trim();
+            const description = document.getElementById('postDescription').value.trim();
+            const code = document.getElementById('postCode').value.trim();
+            const language = document.getElementById('postLanguage').value;
+
+            if (!title || !code) {
+                alert('Please fill in the title and code fields.');
+                return;
+            }
+            
+            // Check if there's a validation error before posting
+            const errorElement = document.getElementById('codeError');
+            if (errorElement && errorElement.style.display !== 'none') {
+                alert('Please fix the language validation error before posting.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                        language: language,
+                        description: `${title}\n\n${description}`
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Post created successfully!', 'success');
+                    closeCreatePost();
+                    loadPosts();
+                } else {
+                    showNotification('Failed to create post', 'error');
+                }
+            } catch (error) {
+                showNotification('Error creating post', 'error');
+            }
+        }
+
+        async function loadPosts() {
+            try {
+                const response = await fetch('/api/posts');
+                const posts = await response.json();
+                
+                const postsFeed = document.getElementById('postsFeed');
+                
+                if (posts.length === 0) {
+                    postsFeed.innerHTML = `
+                        <div class="empty-state">
+                            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                                <polyline points="14,2 14,8 20,8"/>
+                                <line x1="12" y1="18" x2="12" y2="12"/>
+                                <line x1="9" y1="15" x2="15" y2="15"/>
+                            </svg>
+                            <h3>Share your first code</h3>
+                            <p>When you post code, it will appear here and on your profile for others to see.</p>
+                            <button onclick="showCreatePost()" class="start-posting-btn">Create your first post</button>
+                        </div>
+                    `;
+                } else {
+                    postsFeed.innerHTML = posts.map(post => `
+                        <div class="post-card">
+                            <div class="post-header">
+                                <img src="${post.author_image || 'https://via.placeholder.com/40'}" alt="${post.author_name}" class="post-avatar">
+                                <div class="post-info">
+                                    <div class="post-author" style="cursor: pointer; color: var(--primary-color);" onclick="window.location.href='/user/${post.user_id}'">${post.author_name}</div>
+                                    <div class="post-time">${new Date(post.created_at).toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                            <div class="post-content">
+                                <div class="post-description">${post.description}</div>
+                                <div class="post-code">
+                                    <div class="code-header">
+                                        <span class="code-language">${post.language}</span>
+                                        <button onclick="copyCode('${post.id}')" class="copy-btn">Copy</button>
+                                    </div>
+                                    <pre><code>${escapeHtml(post.code)}</code></pre>
+                                </div>
+                            </div>
+                            <div class="post-actions">
+                                <button onclick="likePost(${post.id})" class="action-btn like-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                    </svg>
+                                    ${post.likes}
+                                </button>
+                                <button onclick="commentPost(${post.id})" class="action-btn comment-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                    </svg>
+                                    ${post.comments_count}
+                                </button>
+                                <button onclick="sharePost(${post.id})" class="action-btn share-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="18" cy="5" r="3"/>
+                                        <circle cx="6" cy="12" r="3"/>
+                                        <circle cx="18" cy="19" r="3"/>
+                                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                                    </svg>
+                                    Share
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                document.getElementById('postsFeed').innerHTML = '<p>Error loading posts.</p>';
+            }
+        }
+
+        function likePost(postId) {
+            console.log('Liking post:', postId);
+        }
+
+        function commentPost(postId) {
+            console.log('Commenting on post:', postId);
+        }
+
+        function sharePost(postId) {
+            console.log('Sharing post:', postId);
+        }
+
+        // Load theme on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            }
+            updateNavigationHistory();
+            loadPosts();
+            setupRealTimeValidation(); // Initialize real-time validation
+            updateNotificationBadge(); // Update notification badge
+        });
+        
+        // Update notification badge
+        async function updateNotificationBadge() {
+            try {
+                const response = await fetch('/api/notifications/unread-count');
+                const data = await response.json();
+                const badge = document.getElementById('notificationBadge');
+                if (badge) {
+                    badge.textContent = data.count;
+                    badge.style.display = data.count > 0 ? 'flex' : 'none';
+                }
+            } catch (error) {
+                console.error('Failed to update notification badge:', error);
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function copyCode(postId) {
+            const codeElement = document.querySelector(`[data-post-id="${postId}"] code`);
+            if (codeElement) {
+                navigator.clipboard.writeText(codeElement.textContent)
+                    .then(() => showNotification('Code copied!', 'success'))
+                    .catch(() => showNotification('Failed to copy code', 'error'));
+            }
+        }
+        
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 10px;
+                color: white;
+                font-weight: 600;
+                z-index: 10000;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            `;
+            
+            switch(type) {
+                case 'success':
+                    notification.style.background = 'linear-gradient(135deg, #4caf50, #45a049)';
+                    break;
+                case 'error':
+                    notification.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+                    break;
+                default:
+                    notification.style.background = 'linear-gradient(135deg, #2196f3, #1976d2)';
+            }
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

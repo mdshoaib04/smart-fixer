@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Following - SmartFixer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/user_profile.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-left">
+            <div class="brand-logo">Following</div>
+        </div>
+        
+        <div class="nav-right">
+            <div class="theme-toggle" onclick="toggleTheme()" title="Theme">
+                <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="profile-container">
+        <div class="profile-content">
+            <h2>{% if target_user %}{{ target_user.first_name }} {{ target_user.last_name }}'s {% endif %}Following</h2>
+            <div class="following-list" id="followingList">
+                <!-- Following will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Pass current user ID and target user ID to JavaScript
+        const currentUserId = "{{ user.id }}";
+        const targetUserId = "{{ target_user.id if target_user else user.id }}";
+        
+        // Navigation history management
+        let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
+        
+        function updateNavigationHistory() {
+            const currentPath = window.location.pathname;
+            if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
+                navigationHistory.push(currentPath);
+                if (navigationHistory.length > 10) {
+                    navigationHistory.shift();
+                }
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+            }
+        }
+        
+        function goBack() {
+            if (navigationHistory.length > 1) {
+                navigationHistory.pop();
+                const previousPage = navigationHistory.pop();
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+                window.location.href = previousPage || '/profile';
+            } else {
+                window.location.href = '/profile';
+            }
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            if (newTheme === 'dark') {
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            } else {
+                document.querySelector('.moon').style.display = 'block';
+                document.querySelector('.sun').style.display = 'none';
+            }
+        }
+
+        async function loadFollowing() {
+            try {
+                const response = await fetch(`/api/user/${targetUserId}/following`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const followingList = document.getElementById('followingList');
+                    
+                    if (data.following && data.following.length > 0) {
+                        followingList.innerHTML = data.following.map(following => `
+                            <div class="following-item">
+                                <img src="${following.profile_image_url || 'https://via.placeholder.com/50'}" 
+                                     alt="${following.first_name}" 
+                                     class="following-avatar">
+                                <div class="following-info" style="cursor: pointer;" onclick="window.location.href='/user/${following.id}'">
+                                    <div class="following-name">${following.first_name} ${following.last_name}</div>
+                                    <div class="following-username">@${following.username}</div>
+                                </div>
+                                <button class="follow-btn following" onclick="toggleFollow('${following.id}', this)">
+                                    Following
+                                </button>
+                            </div>
+                        `).join('');
+                    } else {
+                        followingList.innerHTML = '<p class="no-following">Not following anyone yet.</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading following:', error);
+            }
+        }
+
+        async function toggleFollow(userId, button) {
+            try {
+                // Show loading state
+                const originalText = button.textContent;
+                button.textContent = '...';
+                button.disabled = true;
+                
+                const response = await fetch('/api/follow-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: userId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update button based on action
+                    if (data.action === 'unfollowed') {
+                        button.textContent = 'Follow';
+                        button.classList.remove('following');
+                    } else {
+                        button.textContent = 'Following';
+                        button.classList.add('following');
+                    }
+                } else {
+                    alert(data.error || 'Failed to update follow status');
+                    button.textContent = originalText;
+                }
+            } catch (error) {
+                console.error('Follow error:', error);
+                alert('Failed to update follow status');
+                button.textContent = originalText;
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        // Load theme on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            }
+            updateNavigationHistory();
+            loadFollowing();
+            
+            // Set up periodic updates for following
+            setInterval(loadFollowing, 30000); // Update every 30 seconds
+        });
+    </script>
+    
+    <style>
+        .following-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .following-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+        }
+        
+        .following-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .following-info {
+            flex: 1;
+        }
+        
+        .following-name {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        
+        .following-username {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        .no-following {
+            text-align: center;
+            padding: 2rem;
+            color: #888;
+        }
+    </style>
+</body>
+</html>

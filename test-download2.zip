@@ -1,0 +1,17 @@
+SmartFixer Application Download
+==============================
+
+To create a proper executable application with icon:
+
+1. Save this file to your computer
+2. Extract the ZIP file contents
+3. Install PyInstaller: pip install pyinstaller
+4. Run: pyinstaller --onefile --windowed --icon=icon.ico SmartFixer-App.py
+5. The executable will be in the "dist" folder
+
+For detailed instructions, read "HOW_TO_CREATE_APPLICATION.md"
+
+Requirements:
+- Python 3.11 or higher installed on your system
+
+Thank you for using SmartFixer!

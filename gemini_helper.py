@@ -1,14 +1,25 @@
-import os
-from google import genai
-from google.genai import types
-import json
+"""
+Gemini Helper Module - Legacy compatibility layer
+This module maintains backward compatibility with existing code
+while using the new AI abstraction layer
+"""
 
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+import os
+from ai_helper import ai_client, ai_provider, generate_content, test_ai_connection
+
+def test_gemini_connection():
+    """Test the AI API connection (maintains backward compatibility)"""
+    return test_ai_connection()
 
 def review_code(code, language, profession="student"):
-    context = get_profession_context(profession)
-    prompt = f"""You are a code reviewer for a {profession}. {context}
+    """Review code using the configured AI provider"""
+    if not ai_client:
+        return "⚠️ AI API key not configured. Please add your API key to the .env file to enable AI features."
     
+    try:
+        context = get_profession_context(profession)
+        prompt = f"""You are a code reviewer for a {profession}. {context}
+        
 Analyze this {language} code CONCISELY:
 1. Code Quality (1-2 sentences)
 2. Bugs/Issues (if any, max 3)
@@ -22,17 +33,20 @@ Code:
 ```
 
 Keep response short and focused - only mention what's necessary."""
-    
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
-        contents=prompt
-    )
-    return response.text if response.text else "Unable to review code at this time."
+        
+        return generate_content(prompt)
+    except Exception as e:
+        return f"Error analyzing code: {str(e)}. Please check your API key configuration."
 
 def explain_code(code, language, profession="student"):
-    context = get_profession_context(profession)
-    prompt = f"""You are a code explainer for a {profession}. {context}
+    """Explain code using the configured AI provider"""
+    if not ai_client:
+        return "⚠️ AI API key not configured. Please add your API key to the .env file to enable AI features."
     
+    try:
+        context = get_profession_context(profession)
+        prompt = f"""You are a code explainer for a {profession}. {context}
+        
 Explain this {language} code BRIEFLY:
 1. Purpose (1 sentence)
 2. How it works (3-5 key steps)
@@ -45,16 +59,18 @@ Code:
 ```
 
 Keep explanation concise and easy to understand."""
-    
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
-        contents=prompt
-    )
-    return response.text if response.text else "Unable to explain code at this time."
+        
+        return generate_content(prompt)
+    except Exception as e:
+        return f"Error explaining code: {str(e)}. Please check your API key configuration."
 
 def compile_check(code, language, profession="student"):
-    context = get_profession_context(profession)
-    prompt = f"""You are a code compiler for {language}. 
+    """Compile check using the configured AI provider"""
+    if not ai_client:
+        return "⚠️ AI API key not configured. Please add your API key to the .env file to enable AI features."
+    
+    try:
+        prompt = f"""You are a code compiler for {language}. 
 
 Execute this {language} code and provide ONLY the output result.
 
@@ -64,16 +80,19 @@ Code:
 ```
 
 Return ONLY what this code will print/output when run. If there are errors, show the error message. Do not explain how to run it."""
-    
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
-        contents=prompt
-    )
-    return response.text if response.text else "Unable to compile code at this time."
+        
+        return generate_content(prompt)
+    except Exception as e:
+        return f"Error compiling code: {str(e)}. Please check your API key configuration."
 
 def answer_question(question, code=None, language=None):
-    if code and language:
-        prompt = f"""Answer this question about the {language} code:
+    """Answer question using the configured AI provider"""
+    if not ai_client:
+        return "⚠️ AI API key not configured. Please add your API key to the .env file to enable AI features."
+    
+    try:
+        if code and language:
+            prompt = f"""Answer this question about the {language} code:
 
 Code:
 ```{language}
@@ -83,20 +102,23 @@ Code:
 Question: {question}
 
 Answer BRIEFLY in 2-3 sentences with key points only."""
-    else:
-        prompt = f"""Answer this coding question: {question}
+        else:
+            prompt = f"""Answer this coding question: {question}
 
 Provide a CONCISE answer (2-4 sentences) with code example if needed."""
-    
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
-        contents=prompt
-    )
-    return response.text if response.text else "Unable to answer at this time."
+        
+        return generate_content(prompt)
+    except Exception as e:
+        return f"Error answering question: {str(e)}. Please check your API key configuration."
 
 def translate_code(code, from_lang, to_lang):
-    prompt = f"""Translate this code from {from_lang} to {to_lang}.
+    """Translate code using the configured AI provider"""
+    if not ai_client:
+        return "⚠️ AI API key not configured. Please add your API key to the .env file to enable AI features."
     
+    try:
+        prompt = f"""Translate this code from {from_lang} to {to_lang}.
+        
 Maintain the same logic and functionality.
 
 Original {from_lang} code:
@@ -105,15 +127,18 @@ Original {from_lang} code:
 ```
 
 Provide the translated {to_lang} code with explanations of any significant changes."""
-    
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
-        contents=prompt
-    )
-    return response.text if response.text else "Unable to translate code at this time."
+        
+        return generate_content(prompt)
+    except Exception as e:
+        return f"Error translating code: {str(e)}. Please check your API key configuration."
 
 def detect_language(code):
-    prompt = f"""Detect the programming language of this code. Return only the language name (e.g., Python, JavaScript, C++, Java, etc).
+    """Detect language using the configured AI provider"""
+    if not ai_client:
+        return "Python"  # Default fallback
+    
+    try:
+        prompt = f"""Detect the programming language of this code. Return only the language name (e.g., Python, JavaScript, C++, Java, etc).
 
 Code:
 ```
@@ -121,14 +146,15 @@ Code:
 ```
 
 Return ONLY the language name, nothing else."""
-    
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
-        contents=prompt
-    )
-    return response.text.strip() if response.text else "Unknown"
+        
+        result = generate_content(prompt)
+        return result.strip() if result else "Unknown"
+    except Exception as e:
+        print(f"Language detection error: {e}")
+        return "Python"  # Default fallback
 
 def get_profession_context(profession):
+    """Get profession context for AI prompts"""
     contexts = {
         "student": "Focus on learning and understanding. Explain concepts clearly.",
         "professor": "Provide academic insights and teaching perspectives.",
@@ -142,7 +168,12 @@ def get_profession_context(profession):
     return contexts.get(profession, "Provide helpful coding insights.")
 
 def get_dictionary_content(language, searchTerm):
-    prompt = f"""Provide a SIMPLE, SHORT, and EASY TO UNDERSTAND code example for "{searchTerm}" in {language}.
+    """Get dictionary content using the configured AI provider"""
+    if not ai_client:
+        return "⚠️ AI API key not configured. Please add your API key to the .env file to enable AI features."
+    
+    try:
+        prompt = f"""Provide a SIMPLE, SHORT, and EASY TO UNDERSTAND code example for "{searchTerm}" in {language}.
 
 Requirements:
 - Code must be the SIMPLEST possible implementation
@@ -155,9 +186,7 @@ Search Term: {searchTerm}
 Language: {language}
 
 Return ONLY the code with minimal explanation."""
-    
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
-        contents=prompt
-    )
-    return response.text if response.text else f"No template found for '{searchTerm}' in {language}."
+        
+        return generate_content(prompt)
+    except Exception as e:
+        return f"Error getting dictionary content: {str(e)}. Please check your API key configuration."

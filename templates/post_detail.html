@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post by {{ post.author.first_name }} - SmartFixer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/posts.css') }}">
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-left">
+            <div class="brand-logo">Post</div>
+        </div>
+        
+        <div class="nav-right">
+            <div class="theme-toggle" onclick="toggleTheme()" title="Theme">
+                <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="posts-container">
+        <div class="post-card" data-post-id="{{ post.id }}">
+            <div class="post-header">
+                <img src="{{ post.author.profile_image_url or 'https://via.placeholder.com/40' }}" alt="{{ post.author.first_name }}" class="post-avatar">
+                <div class="post-info">
+                    <div class="post-author" style="cursor: pointer; color: var(--primary-color);" onclick="window.location.href='/user/{{ post.user_id }}'">{{ post.author.first_name }} {{ post.author.last_name }}</div>
+                    <div class="post-time">{{ post.created_at.strftime('%B %d, %Y') }}</div>
+                </div>
+            </div>
+            <div class="post-content">
+                <div class="post-description">{{ post.description }}</div>
+                <div class="post-code">
+                    <div class="code-header">
+                        <span class="code-language">{{ post.language }}</span>
+                        <button id="copyCodeBtn" class="copy-btn">Copy</button>
+                    </div>
+                    <pre><code id="postCode">{{ post.code }}</code></pre>
+                </div>
+            </div>
+            <div class="post-actions">
+                <button class="action-btn like-btn" id="likeButton">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    </svg>
+                    <span id="likeCount">{{ post.likes }}</span>
+                </button>
+                <button class="action-btn comment-btn" id="commentButton">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    {{ post.comments|length }}
+                </button>
+                <button class="action-btn share-btn" id="shareButton">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="18" cy="5" r="3"/>
+                        <circle cx="6" cy="12" r="3"/>
+                        <circle cx="18" cy="19" r="3"/>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                    </svg>
+                    Share
+                </button>
+                <button class="action-btn save-btn" id="saveButton">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    Save
+                </button>
+            </div>
+        </div>
+
+        <!-- Comments Section -->
+        <div class="comments-section">
+            <h3>Comments</h3>
+            <div class="comments-list" id="commentsList">
+                <!-- Comments will be loaded here -->
+            </div>
+            
+            <div class="add-comment">
+                <img src="{{ user.profile_image_url or 'https://via.placeholder.com/40' }}" alt="{{ user.first_name }}" class="comment-avatar">
+                <div class="comment-input-container">
+                    <input type="text" id="commentInput" placeholder="Add a comment...">
+                    <button id="postCommentBtn" class="post-comment-btn">Post</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get post ID from data attribute
+        const postId = document.querySelector('.post-card').dataset.postId;
+        
+        // Navigation history management
+        let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
+        
+        function updateNavigationHistory() {
+            const currentPath = window.location.pathname;
+            if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
+                navigationHistory.push(currentPath);
+                if (navigationHistory.length > 10) {
+                    navigationHistory.shift();
+                }
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+            }
+        }
+        
+        function goBack() {
+            if (navigationHistory.length > 1) {
+                navigationHistory.pop();
+                const previousPage = navigationHistory.pop();
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+                window.location.href = previousPage || '/upload-or-write';
+            } else {
+                window.location.href = '/upload-or-write';
+            }
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            if (newTheme === 'dark') {
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            } else {
+                document.querySelector('.moon').style.display = 'block';
+                document.querySelector('.sun').style.display = 'none';
+            }
+        }
+
+        async function likePost(postId) {
+            try {
+                const response = await fetch(`/api/posts/${postId}/like`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('likeCount').textContent = data.likes;
+                    
+                    // Toggle button state
+                    const likeButton = document.getElementById('likeButton');
+                    if (data.likes > parseInt(likeButton.querySelector('span').textContent)) {
+                        likeButton.classList.add('liked');
+                    } else {
+                        likeButton.classList.remove('liked');
+                    }
+                }
+            } catch (error) {
+                console.error('Error liking post:', error);
+            }
+        }
+
+        async function loadComments(postId) {
+            try {
+                const response = await fetch(`/api/posts/${postId}/comments`);
+                if (response.ok) {
+                    const comments = await response.json();
+                    const commentsList = document.getElementById('commentsList');
+                    
+                    if (comments.length > 0) {
+                        commentsList.innerHTML = comments.map(comment => `
+                            <div class="comment">
+                                <img src="${comment.user_image || 'https://via.placeholder.com/40'}" alt="${comment.author_name}" class="comment-avatar">
+                                <div class="comment-content">
+                                    <div class="comment-author">${comment.author_name}</div>
+                                    <div class="comment-text">${comment.content}</div>
+                                    <div class="comment-time">${new Date(comment.created_at).toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        commentsList.innerHTML = '<p class="no-comments">No comments yet.</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading comments:', error);
+            }
+        }
+
+        async function addComment(postId) {
+            const commentInput = document.getElementById('commentInput');
+            const content = commentInput.value.trim();
+            
+            if (!content) return;
+            
+            try {
+                const response = await fetch(`/api/posts/${postId}/comment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content: content })
+                });
+                
+                if (response.ok) {
+                    commentInput.value = '';
+                    loadComments(postId);
+                }
+            } catch (error) {
+                console.error('Error adding comment:', error);
+            }
+        }
+
+        function commentPost(postId) {
+            document.getElementById('commentInput').focus();
+        }
+
+        function sharePost(postId) {
+            // Show share options modal
+            showShareModal(postId);
+        }
+
+        async function showShareModal(postId) {
+            try {
+                // Create modal HTML
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.id = 'shareModal';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <span class="close">&times;</span>
+                        <h2>Share Post</h2>
+                        <div class="share-options">
+                            <h3>Share with Friends</h3>
+                            <div id="friendsList" class="friends-list">
+                                <p>Loading friends...</p>
+                            </div>
+                            <h3>Share via</h3>
+                            <div class="social-share">
+                                <button class="share-btn instagram" onclick="shareVia('instagram', ${postId})">
+                                    <i class="fab fa-instagram"></i> Instagram
+                                </button>
+                                <button class="share-btn whatsapp" onclick="shareVia('whatsapp', ${postId})">
+                                    <i class="fab fa-whatsapp"></i> WhatsApp
+                                </button>
+                                <button class="share-btn facebook" onclick="shareVia('facebook', ${postId})">
+                                    <i class="fab fa-facebook"></i> Facebook
+                                </button>
+                                <button class="share-btn twitter" onclick="shareVia('twitter', ${postId})">
+                                    <i class="fab fa-twitter"></i> Twitter
+                                </button>
+                                <button class="share-btn linkedin" onclick="shareVia('linkedin', ${postId})">
+                                    <i class="fab fa-linkedin"></i> LinkedIn
+                                </button>
+                                <button class="share-btn copy-link" onclick="copyPostLink(${postId})">
+                                    <i class="fas fa-link"></i> Copy Link
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Add event listener to close button
+                modal.querySelector('.close').addEventListener('click', function() {
+                    document.body.removeChild(modal);
+                });
+                
+                // Load friends
+                await loadFriendsForSharing(postId);
+                
+                // Show modal
+                modal.style.display = 'block';
+            } catch (error) {
+                console.error('Error showing share modal:', error);
+            }
+        }
+
+        async function loadFriendsForSharing(postId) {
+            try {
+                const response = await fetch('/api/friends');
+                if (response.ok) {
+                    const friends = await response.json();
+                    const friendsList = document.getElementById('friendsList');
+                    
+                    if (friends.length > 0) {
+                        friendsList.innerHTML = `
+                            <div class="friends-grid">
+                                ${friends.map(friend => `
+                                    <div class="friend-item">
+                                        <img src="${friend.image || 'https://via.placeholder.com/40'}" alt="${friend.name}">
+                                        <span>${friend.name}</span>
+                                        <input type="checkbox" class="friend-checkbox" value="${friend.id}">
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <button class="share-with-friends-btn" onclick="shareWithSelectedFriends(${postId})">Share</button>
+                        `;
+                    } else {
+                        friendsList.innerHTML = '<p>No friends found</p>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading friends:', error);
+            }
+        }
+
+        async function shareWithSelectedFriends(postId) {
+            try {
+                const checkboxes = document.querySelectorAll('.friend-checkbox:checked');
+                const friendIds = Array.from(checkboxes).map(cb => cb.value);
+                
+                if (friendIds.length === 0) {
+                    alert('Please select at least one friend to share with.');
+                    return;
+                }
+                
+                const response = await fetch('/api/share-post', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        post_id: postId,
+                        friend_ids: friendIds
+                    })
+                });
+                
+                if (response.ok) {
+                    showNotification('Post shared successfully!', 'success');
+                    document.getElementById('shareModal').remove();
+                } else {
+                    showNotification('Failed to share post', 'error');
+                }
+            } catch (error) {
+                console.error('Error sharing post:', error);
+                showNotification('Error sharing post', 'error');
+            }
+        }
+
+        function shareVia(platform, postId) {
+            const postUrl = `${window.location.origin}/post/${postId}`;
+            let shareUrl = '';
+            
+            switch(platform) {
+                case 'instagram':
+                    // Instagram doesn't allow direct URL sharing, so we'll just copy the link
+                    copyPostLink(postId);
+                    break;
+                case 'whatsapp':
+                    shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(postUrl)}`;
+                    window.open(shareUrl, '_blank');
+                    break;
+                case 'facebook':
+                    shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`;
+                    window.open(shareUrl, '_blank');
+                    break;
+                case 'twitter':
+                    shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(postUrl)}`;
+                    window.open(shareUrl, '_blank');
+                    break;
+                case 'linkedin':
+                    shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`;
+                    window.open(shareUrl, '_blank');
+                    break;
+            }
+        }
+        
+        function copyPostLink(postId) {
+            const postUrl = `${window.location.origin}/post/${postId}`;
+            navigator.clipboard.writeText(postUrl).then(() => {
+                showNotification('Post link copied to clipboard!', 'success');
+            }).catch(err => {
+                showNotification('Failed to copy link', 'error');
+            });
+        }
+
+        function copyCode() {
+            const codeElement = document.getElementById('postCode');
+            navigator.clipboard.writeText(codeElement.textContent)
+                .then(() => showNotification('Code copied!', 'success'))
+                .catch(() => showNotification('Failed to copy code', 'error'));
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 10px;
+                color: white;
+                font-weight: 600;
+                z-index: 10000;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            `;
+            
+            switch(type) {
+                case 'success':
+                    notification.style.background = 'linear-gradient(135deg, #4caf50, #45a049)';
+                    break;
+                case 'error':
+                    notification.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+                    break;
+                default:
+                    notification.style.background = 'linear-gradient(135deg, #2196f3, #1976d2)';
+            }
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        async function savePost(postId) {
+            try {
+                const response = await fetch(`/api/posts/${postId}/save`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const saveButton = document.getElementById('saveButton');
+                    
+                    if (data.saved) {
+                        saveButton.classList.add('saved');
+                        saveButton.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            Saved
+                        `;
+                        showNotification('Post saved!', 'success');
+                    } else {
+                        saveButton.classList.remove('saved');
+                        saveButton.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            Save
+                        `;
+                        showNotification('Post unsaved', 'success');
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving post:', error);
+            }
+        }
+
+        // Load theme on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            }
+            updateNavigationHistory();
+            loadComments(postId);
+            
+            // Add event listeners
+            document.getElementById('likeButton').addEventListener('click', () => likePost(postId));
+            document.getElementById('commentButton').addEventListener('click', () => commentPost(postId));
+            document.getElementById('shareButton').addEventListener('click', () => sharePost(postId));
+            document.getElementById('postCommentBtn').addEventListener('click', () => addComment(postId));
+            document.getElementById('copyCodeBtn').addEventListener('click', copyCode);
+            document.getElementById('saveButton').addEventListener('click', () => savePost(postId));
+        });
+    </script>
+    
+    <style>
+        .comments-section {
+            margin-top: 2rem;
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+        
+        .comments-section h3 {
+            color: var(--text-color);
+            margin-bottom: 1rem;
+        }
+        
+        .comment {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .comment:last-child {
+            border-bottom: none;
+        }
+        
+        .comment-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .comment-content {
+            flex: 1;
+        }
+        
+        .comment-author {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 0.25rem;
+        }
+        
+        .comment-text {
+            color: var(--text-color);
+            margin-bottom: 0.25rem;
+        }
+        
+        .comment-time {
+            font-size: 0.8rem;
+            color: #888;
+        }
+        
+        .no-comments {
+            text-align: center;
+            color: #888;
+            padding: 2rem;
+        }
+        
+        .add-comment {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .comment-input-container {
+            flex: 1;
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        #commentInput {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+        
+        #commentInput:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        
+        .post-comment-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .post-comment-btn:hover {
+            background: var(--secondary-color);
+        }
+        
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: auto;
+            padding: 20px;
+            border: none;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            right: 15px;
+            top: 10px;
+        }
+        
+        .close:hover {
+            color: #000;
+        }
+        
+        .share-options h3 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+        
+        .friends-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        
+        .friend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .friend-item img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+        
+        .social-share {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .share-btn {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            font-weight: bold;
+        }
+        
+        .instagram { background-color: #E1306C; color: white; }
+        .whatsapp { background-color: #25D366; color: white; }
+        .facebook { background-color: #4267B2; color: white; }
+        .twitter { background-color: #1DA1F2; color: white; }
+        .linkedin { background-color: #0077B5; color: white; }
+        .copy-link { background-color: var(--primary-color); color: white; }
+        
+        .share-with-friends-btn {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .share-with-friends-btn:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .save-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .save-btn:hover {
+            background: var(--border-color);
+        }
+        
+        .save-btn.saved {
+            color: var(--primary-color);
+        }
+    </style>
+</body>
+</html>

@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - SmartFixer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/posts.css') }}">
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-left">
+            <button class="back-btn" onclick="goBack()" title="Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5"/>
+                    <path d="M12 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            <div class="brand-logo">Notifications</div>
+        </div>
+        
+        <div class="nav-right">
+            <div class="theme-toggle" onclick="toggleTheme()" title="Theme">
+                <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="notifications-container">
+        <div class="notifications-header">
+            <h2>Notifications</h2>
+            <button class="mark-all-read" onclick="markAllRead()">Mark all as read</button>
+        </div>
+        
+        <div class="notifications-list" id="notificationsList">
+            <!-- Real notifications will be loaded here -->
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // Navigation history management
+        let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
+        
+        // Initialize SocketIO
+        const socket = io();
+        
+        // Join user's personal room
+        socket.emit('join', {room: `user_{{ user.id }}`});
+        
+        // Listen for new notifications
+        socket.on('new_notification', function(data) {
+            if (data.user_id === '{{ user.id }}') {
+                // Add notification to the list
+                const notificationsList = document.getElementById('notificationsList');
+                const item = createNotificationItem(data.notification);
+                
+                // Add to the top of the list
+                if (notificationsList.firstChild) {
+                    notificationsList.insertBefore(item, notificationsList.firstChild);
+                } else {
+                    notificationsList.appendChild(item);
+                }
+                
+                // Update notification badge
+                updateNotificationBadge();
+                
+                // Show notification alert
+                showNotification('You have a new notification!', 'info');
+            }
+        });
+        
+        function updateNavigationHistory() {
+            const currentPath = window.location.pathname;
+            if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
+                navigationHistory.push(currentPath);
+                if (navigationHistory.length > 10) {
+                    navigationHistory.shift();
+                }
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+            }
+        }
+        
+        function goBack() {
+            // Go back to the editor page
+            window.location.href = '/editor';
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            if (newTheme === 'dark') {
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            } else {
+                document.querySelector('.moon').style.display = 'block';
+                document.querySelector('.sun').style.display = 'none';
+            }
+        }
+
+        async function loadNotifications() {
+            try {
+                const response = await fetch('/api/notifications');
+                const notifications = await response.json();
+                
+                const notificationsList = document.getElementById('notificationsList');
+                notificationsList.innerHTML = '';
+                
+                if (notifications.length === 0) {
+                    notificationsList.innerHTML = '<p class="no-notifications">No notifications yet.</p>';
+                    return;
+                }
+                
+                // Mark all notifications as read when viewing the notifications page (silently)
+                await markAllReadSilently();
+                
+                // Group notifications by date
+                const groupedNotifications = groupNotificationsByDate(notifications);
+                
+                for (const [date, notifs] of Object.entries(groupedNotifications)) {
+                    const section = document.createElement('div');
+                    section.className = 'notification-section';
+                    
+                    const header = document.createElement('h3');
+                    header.textContent = date;
+                    section.appendChild(header);
+                    
+                    notifs.forEach(notif => {
+                        const item = createNotificationItem(notif);
+                        section.appendChild(item);
+                    });
+                    
+                    notificationsList.appendChild(section);
+                }
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+                document.getElementById('notificationsList').innerHTML = '<p class="error">Failed to load notifications.</p>';
+            }
+        }
+
+        function groupNotificationsByDate(notifications) {
+            const groups = {};
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            notifications.forEach(notif => {
+                const notifDate = new Date(notif.created_at);
+                let groupKey;
+                
+                if (isSameDay(notifDate, today)) {
+                    groupKey = 'Today';
+                } else if (isSameDay(notifDate, yesterday)) {
+                    groupKey = 'Yesterday';
+                } else if (isThisWeek(notifDate)) {
+                    groupKey = 'This Week';
+                } else {
+                    groupKey = formatDate(notifDate);
+                }
+                
+                if (!groups[groupKey]) {
+                    groups[groupKey] = [];
+                }
+                groups[groupKey].push(notif);
+            });
+            
+            return groups;
+        }
+
+        function isSameDay(date1, date2) {
+            return date1.getDate() === date2.getDate() &&
+                   date1.getMonth() === date2.getMonth() &&
+                   date1.getFullYear() === date2.getFullYear();
+        }
+
+        function isThisWeek(date) {
+            const today = new Date();
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return date >= weekAgo && date < today;
+        }
+
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+
+        function createNotificationItem(notif) {
+            const item = document.createElement('div');
+            item.className = `notification-item ${notif.read ? '' : 'unread'}`;
+            item.dataset.notificationId = notif.id;
+            
+            // Store notification data for later use
+            item.dataset.notificationData = JSON.stringify(notif);
+            
+            // Profile image and name on the left
+            const leftContent = document.createElement('div');
+            leftContent.className = 'notification-left';
+            
+            if (notif.from_user && notif.from_user.image) {
+                const avatar = document.createElement('img');
+                avatar.src = notif.from_user.image;
+                avatar.alt = notif.from_user.name;
+                avatar.className = 'notification-avatar';
+                leftContent.appendChild(avatar);
+            }
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'notification-content';
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'notification-text';
+            
+            // Make the user name in the notification content clickable
+            if (notif.from_user) {
+                // Create a link for the user name
+                const userLink = document.createElement('a');
+                userLink.href = `/user/${notif.from_user.id}`;
+                userLink.textContent = notif.from_user.name;
+                userLink.style.color = 'var(--primary-color)';
+                userLink.style.textDecoration = 'none';
+                userLink.style.fontWeight = 'bold';
+                
+                // Replace the user name in the content with the link
+                const contentText = notif.content;
+                const userNameIndex = contentText.indexOf(notif.from_user.name);
+                if (userNameIndex !== -1) {
+                    const beforeUserName = contentText.substring(0, userNameIndex);
+                    const afterUserName = contentText.substring(userNameIndex + notif.from_user.name.length);
+                    
+                    textDiv.appendChild(document.createTextNode(beforeUserName));
+                    textDiv.appendChild(userLink);
+                    textDiv.appendChild(document.createTextNode(afterUserName));
+                } else {
+                    // If we can't find the exact name, just display the content as is
+                    textDiv.textContent = contentText;
+                }
+            } else {
+                textDiv.textContent = notif.content;
+            }
+            
+            contentDiv.appendChild(textDiv);
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'notification-time';
+            timeDiv.textContent = formatTimeAgo(notif.created_at);
+            contentDiv.appendChild(timeDiv);
+            
+            leftContent.appendChild(contentDiv);
+            
+            // Actions on the right
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'notification-actions';
+            
+            // Handle different notification types
+            if (notif.type === 'friend_request') {
+                // Check if this is a follow back request by looking at the content
+                if (notif.content.includes('started following you')) {
+                    // Show "View" button instead of "Follow Back" when user has accepted the request
+                    const viewBtn = document.createElement('button');
+                    viewBtn.className = 'view-btn';
+                    viewBtn.textContent = 'View';
+                    viewBtn.onclick = () => {
+                        if (notif.from_user && notif.from_user.id) {
+                            window.location.href = `/user/${notif.from_user.id}`;
+                        }
+                    };
+                    actionsDiv.appendChild(viewBtn);
+                } else if (notif.content.includes('You and')) {
+                    // No buttons needed for mutual follow
+                } else if (notif.content.includes('requested to follow you')) {
+                    // Show "Confirm" and "Delete" buttons for follow back requests
+                    const confirmBtn = document.createElement('button');
+                    confirmBtn.className = 'confirm-btn';
+                    confirmBtn.textContent = 'Confirm';
+                    confirmBtn.onclick = () => respondToNotification(notif.id, 'accept');
+                    actionsDiv.appendChild(confirmBtn);
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = () => respondToNotification(notif.id, 'deny');
+                    actionsDiv.appendChild(deleteBtn);
+                } else if (notif.content.includes('You requested to follow')) {
+                    // Show "Requested" text when user has sent a follow back request
+                    const requestedText = document.createElement('span');
+                    requestedText.textContent = 'Requested';
+                    requestedText.style.fontWeight = 'bold';
+                    requestedText.style.color = 'var(--accent-color)';
+                    actionsDiv.appendChild(requestedText);
+                } else {
+                    // Show "Confirm" and "Delete" buttons for new friend requests
+                    const confirmBtn = document.createElement('button');
+                    confirmBtn.className = 'confirm-btn';
+                    confirmBtn.textContent = 'Confirm';
+                    confirmBtn.onclick = () => respondToNotification(notif.id, 'accept');
+                    actionsDiv.appendChild(confirmBtn);
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = () => respondToNotification(notif.id, 'deny');
+                    actionsDiv.appendChild(deleteBtn);
+                }
+            } else if (notif.type === 'follow_back') {
+                // For mutual follow notifications, show "View" button
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'view-btn';
+                viewBtn.textContent = 'View';
+                viewBtn.onclick = () => {
+                    if (notif.from_user && notif.from_user.id) {
+                        window.location.href = `/user/${notif.from_user.id}`;
+                    }
+                };
+                actionsDiv.appendChild(viewBtn);
+            } else if (notif.type === 'like') {
+                // For likes, show a view button that opens the post
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'view-btn';
+                viewBtn.textContent = 'View';
+                viewBtn.onclick = () => viewNotification(notif);
+                actionsDiv.appendChild(viewBtn);
+            } else if (notif.type === 'comment') {
+                // For comments, show a view button that opens the post
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'view-btn';
+                viewBtn.textContent = 'View';
+                viewBtn.onclick = () => viewNotification(notif);
+                actionsDiv.appendChild(viewBtn);
+            } else if (notif.type === 'share') {
+                // For shares, show a view button that opens the post
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'view-btn';
+                viewBtn.textContent = 'View';
+                viewBtn.onclick = () => viewNotification(notif);
+                actionsDiv.appendChild(viewBtn);
+            } else if (notif.type === 'system_update') {
+                // For system updates, show a view button
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'view-btn';
+                viewBtn.textContent = 'View';
+                viewBtn.onclick = () => viewNotification(notif);
+                actionsDiv.appendChild(viewBtn);
+            } else {
+                // For other notifications, show a profile button if from_user exists
+                if (notif.from_user && notif.from_user.id) {
+                    const profileBtn = document.createElement('button');
+                    profileBtn.className = 'view-btn';
+                    profileBtn.textContent = 'Profile';
+                    profileBtn.onclick = () => {
+                        window.location.href = `/user/${notif.from_user.id}`;
+                    };
+                    actionsDiv.appendChild(profileBtn);
+                }
+            }
+            
+            item.appendChild(leftContent);
+            item.appendChild(actionsDiv);
+            
+            return item;
+        }
+
+        function formatTimeAgo(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+            
+            if (diffInSeconds < 60) {
+                return `${diffInSeconds}s`;
+            } else if (diffInSeconds < 3600) {
+                return `${Math.floor(diffInSeconds / 60)}m`;
+            } else if (diffInSeconds < 86400) {
+                return `${Math.floor(diffInSeconds / 3600)}h`;
+            } else {
+                return `${Math.floor(diffInSeconds / 86400)}d`;
+            }
+        }
+
+        async function markAllRead() {
+            try {
+                // Call API to mark all notifications as read
+                await fetch('/api/notifications/mark-all-read', {
+                    method: 'POST'
+                });
+                
+                // Update UI
+                document.querySelectorAll('.notification-item.unread').forEach(item => {
+                    item.classList.remove('unread');
+                });
+                
+                // Update notification badge
+                await updateNotificationBadge();
+                
+                alert('All notifications marked as read!');
+            } catch (error) {
+                console.error('Error marking notifications as read:', error);
+                alert('Failed to mark notifications as read');
+            }
+        }
+        
+        async function markAllReadSilently() {
+            try {
+                // Call API to mark all notifications as read
+                await fetch('/api/notifications/mark-all-read', {
+                    method: 'POST'
+                });
+                
+                // Update UI
+                document.querySelectorAll('.notification-item.unread').forEach(item => {
+                    item.classList.remove('unread');
+                });
+                
+                // Update notification badge
+                await updateNotificationBadge();
+            } catch (error) {
+                console.error('Error marking notifications as read:', error);
+            }
+        }
+
+        async function respondToNotification(notifId, action) {
+            try {
+                const response = await fetch(`/api/notifications/${notifId}/respond`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({action})
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update the notification item in the list based on action
+                    const item = document.querySelector(`[data-notification-id="${notifId}"]`);
+                    if (item) {
+                        if (action === 'accept') {
+                            // Change buttons to "View"
+                            const actionsDiv = item.querySelector('.notification-actions');
+                            actionsDiv.innerHTML = '';
+                            
+                            const viewBtn = document.createElement('button');
+                            viewBtn.className = 'view-btn';
+                            viewBtn.textContent = 'View';
+                            viewBtn.onclick = () => {
+                                const notif = JSON.parse(item.dataset.notificationData || '{}');
+                                if (notif.from_user && notif.from_user.id) {
+                                    window.location.href = `/user/${notif.from_user.id}`;
+                                }
+                            };
+                            actionsDiv.appendChild(viewBtn);
+                            
+                            // Update notification text
+                            const textDiv = item.querySelector('.notification-text');
+                            // Find the user link and get the user name
+                            const userLink = textDiv.querySelector('a');
+                            if (userLink) {
+                                const userName = userLink.textContent;
+                                textDiv.innerHTML = '';
+                                const userLinkClone = userLink.cloneNode(true);
+                                textDiv.appendChild(userLinkClone);
+                                textDiv.appendChild(document.createTextNode(' started following you'));
+                            }
+                            
+                            showNotification('Friend request accepted!', 'success');
+                        } else if (action === 'follow_back') {
+                            // Show "Requested" text instead of removing buttons
+                            const actionsDiv = item.querySelector('.notification-actions');
+                            actionsDiv.innerHTML = '';
+                            
+                            const requestedText = document.createElement('span');
+                            requestedText.textContent = 'Requested';
+                            requestedText.style.fontWeight = 'bold';
+                            requestedText.style.color = 'var(--accent-color)';
+                            actionsDiv.appendChild(requestedText);
+                            
+                            // Update notification text
+                            const textDiv = item.querySelector('.notification-text');
+                            textDiv.textContent = 'Follow request sent';
+                            
+                            showNotification('Follow request sent!', 'success');
+                        } else if (action === 'deny') {
+                            // Remove the notification item from the list
+                            item.style.animation = 'slideOut 0.3s ease';
+                            setTimeout(() => item.remove(), 300);
+                            showNotification('Friend request deleted.', 'info');
+                        }
+                    }
+                    
+                    // Update user stats if provided
+                    if (result.current_user_stats) {
+                        // Update current user's follower/following counts
+                        const followerElements = document.querySelectorAll('.stat-number');
+                        if (followerElements.length >= 2) {
+                            followerElements[1].textContent = result.current_user_stats.follower_count;
+                            followerElements[2].textContent = result.current_user_stats.following_count;
+                        }
+                        
+                        // Update profile page stats if we're on a profile page
+                        const profileFollowerCount = document.querySelector('.profile-stats .stat:nth-child(2) .stat-number');
+                        const profileFollowingCount = document.querySelector('.profile-stats .stat:nth-child(3) .stat-number');
+                        
+                        if (profileFollowerCount) {
+                            profileFollowerCount.textContent = result.current_user_stats.follower_count;
+                        }
+                        
+                        if (profileFollowingCount) {
+                            profileFollowingCount.textContent = result.current_user_stats.following_count;
+                        }
+                    }
+                    
+                    // Update notification badge
+                    await updateNotificationBadge();
+                } else {
+                    showNotification('Failed to respond to notification', 'error');
+                }
+            } catch (error) {
+                console.error('Error responding to notification:', error);
+                showNotification('Error responding to notification', 'error');
+            }
+        }
+
+        async function viewNotification(notif) {
+            // Mark as read
+            const item = document.querySelector(`[data-notification-id="${notif.id}"]`);
+            if (item) {
+                item.classList.remove('unread');
+            }
+            
+            // Update notification badge
+            await updateNotificationBadge();
+            
+            // Navigate based on notification type
+            if (notif.type === 'like') {
+                // Extract post information from content and navigate to post
+                // For now, we'll show an alert and then navigate to a default post page
+                alert('Navigating to post...');
+                // In a real implementation, you would extract the post ID and navigate to it
+                // window.location.href = `/post/${postId}`;
+            } else if (notif.type === 'comment') {
+                // Extract post information from content and navigate to post
+                alert('Navigating to post...');
+                // window.location.href = `/post/${postId}`;
+            } else if (notif.type === 'share') {
+                // Navigate to the shared post
+                alert('Navigating to shared post...');
+                // window.location.href = `/post/${postId}`;
+            } else if (notif.type === 'system_update') {
+                // Show system update information
+                alert('New version released - Explore updated features!');
+            } else if (notif.type === 'friend_request' || notif.type === 'friend_request_accepted' || notif.type === 'follow_back') {
+                // Navigate to the user profile
+                if (notif.from_user && notif.from_user.id) {
+                    window.location.href = `/user/${notif.from_user.id}`;
+                }
+            } else if (notif.type === 'mention') {
+                // For mentions, navigate to the post where the mention occurred
+                alert('Navigating to post with your mention...');
+                // window.location.href = `/post/${postId}`;
+            }
+        }
+
+        async function updateNotificationBadge() {
+            try {
+                const response = await fetch('/api/notifications/unread-count');
+                const data = await response.json();
+                const badge = document.getElementById('notificationBadge');
+                if (badge) {
+                    badge.textContent = data.count;
+                    badge.style.display = data.count > 0 ? 'flex' : 'none';
+                }
+            } catch (error) {
+                console.error('Failed to update notification badge:', error);
+            }
+        }
+
+        // Notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 10px;
+                color: white;
+                font-weight: 600;
+                z-index: 10000;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            `;
+            
+            switch(type) {
+                case 'success':
+                    notification.style.background = 'linear-gradient(135deg, #4caf50, #45a049)';
+                    break;
+                case 'error':
+                    notification.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+                    break;
+                case 'info':
+                    notification.style.background = 'linear-gradient(135deg, #2196f3, #1976d2)';
+                    break;
+                default:
+                    notification.style.background = 'linear-gradient(135deg, #607d8b, #455a64)';
+            }
+            
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            // Auto remove after 3 seconds
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        function getStarted() {
+            window.location.href = '{{ url_for("upload_or_write") }}';
+        }
+
+        // Load theme and notifications on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            }
+            updateNavigationHistory();
+            loadNotifications();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dictionary - Smart Code Reviewer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="page-title">Code Dictionary</h1>
+
+        <div class="dictionary-controls">
+            <select id="language-select">
+                <option value="Python">Python</option>
+                <option value="JavaScript">JavaScript</option>
+                <option value="Java">Java</option>
+                <option value="C++">C++</option>
+                <option value="C#">C#</option>
+                <option value="Go">Go</option>
+                <option value="Ruby">Ruby</option>
+                <option value="PHP">PHP</option>
+                <option value="Swift">Swift</option>
+                <option value="Kotlin">Kotlin</option>
+                <option value="Rust">Rust</option>
+                <option value="TypeScript">TypeScript</option>
+            </select>
+            <input type="text" id="search-term" placeholder="Search term...">
+            <button id="search-btn">Search</button>
+            <button id="add-entry-btn">Add New Entry</button>
+        </div>
+
+        <div id="dictionary-list">
+            <!-- Dictionary entries will be loaded here -->
+        </div>
+
+        <!-- Modal for Add/Edit Entry -->
+        <div id="entry-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button">&times;</span>
+                <h2 id="modal-title">Add Dictionary Entry</h2>
+                <input type="hidden" id="entry-id">
+                <label for="modal-language">Language:</label>
+                <select id="modal-language">
+                    <option value="Python">Python</option>
+                    <option value="JavaScript">JavaScript</option>
+                    <option value="Java">Java</option>
+                    <option value="C++">C++</option>
+                    <option value="C#">C#</option>
+                    <option value="Go">Go</option>
+                    <option value="Ruby">Ruby</option>
+                    <option value="PHP">PHP</option>
+                    <option value="Swift">Swift</option>
+                    <option value="Kotlin">Kotlin</option>
+                    <option value="Rust">Rust</option>
+                    <option value="TypeScript">TypeScript</option>
+                </select>
+                <label for="modal-term">Term:</label>
+                <input type="text" id="modal-term" required>
+                <label for="modal-definition">Definition:</label>
+                <textarea id="modal-definition" rows="10" required></textarea>
+                <button id="save-entry-btn">Save Entry</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/dictionary.js"></script>
+</body>
+</html>

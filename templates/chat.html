@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - SmartFixer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-left">
+            <button class="back-btn" onclick="goBack()" title="Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5"/>
+                    <path d="M12 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            <div class="brand-logo">Messages</div>
+        </div>
+        
+        <div class="nav-right">
+            <div class="theme-toggle tooltip" data-tooltip="Theme" onclick="toggleTheme()" title="Theme">
+                <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </div>
+            
+            <button class="new-chat-btn" onclick="startNewChat()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                New Chat
+            </button>
+        </div>
+    </div>
+
+    <div class="chat-page-container">
+        <div class="chat-layout">
+            <div class="chat-sidebar">
+                <div class="chat-search">
+                    <input type="text" placeholder="Search messages..." class="search-input" oninput="searchChats()">
+                </div>
+                
+                <div class="chat-list" id="chatList">
+                    <!-- Chat items will be loaded dynamically -->
+                </div>
+            </div>
+            
+            <div class="chat-main">
+                <div class="chat-header-info" id="chatHeaderInfo">
+                    <img src="https://via.placeholder.com/32" alt="Profile" class="current-chat-avatar">
+                    <div class="current-chat-info">
+                        <div class="current-chat-name">Select a chat</div>
+                        <div class="current-chat-status">Offline</div>
+                    </div>
+                    <div class="chat-actions">
+                        <button class="chat-action-btn" title="Video Call" onclick="startVideoCall()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="23 7 16 12 23 17 23 7"/>
+                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                            </svg>
+                        </button>
+                        <button class="chat-action-btn" title="Voice Call" onclick="startVoiceCall()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Messages will be loaded dynamically -->
+                </div>
+                
+                <div class="chat-input-container">
+                    <button class="attach-btn" title="Attach File" onclick="attachFile()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                        </svg>
+                    </button>
+                    <input type="text" id="chatInput" placeholder="Type a message..." onkeypress="handleChatEnter(event)">
+                    <button class="code-btn" title="Share Code" onclick="shareCodeInChat()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="16,18 22,12 16,6"/>
+                            <polyline points="8,6 2,12 8,18"/>
+                        </svg>
+                    </button>
+                    <button class="send-btn" onclick="sendMessage()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"/>
+                            <polygon points="22,2 15,22 11,13 2,9 22,2"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Navigation history management
+        let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
+        let socket;
+        let currentChatUser = null;
+        let allChats = [];
+        
+        function updateNavigationHistory() {
+            const currentPath = window.location.pathname;
+            if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
+                navigationHistory.push(currentPath);
+                if (navigationHistory.length > 10) {
+                    navigationHistory.shift();
+                }
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+            }
+        }
+        
+        function goBack() {
+            // Go back to the editor page
+            window.location.href = '/editor';
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            if (newTheme === 'dark') {
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            } else {
+                document.querySelector('.moon').style.display = 'block';
+                document.querySelector('.sun').style.display = 'none';
+            }
+        }
+
+        function startNewChat() {
+            // For now, redirect to explore to find users to chat with
+            window.location.href = '/explore';
+        }
+
+        async function loadChats() {
+            try {
+                const response = await fetch('/api/friends');
+                const friends = await response.json();
+                allChats = friends;
+                displayChats(friends);
+            } catch (error) {
+                console.error('Error loading chats:', error);
+            }
+        }
+
+        async function loadChatsAndAutoSelect() {
+            try {
+                const response = await fetch('/api/friends');
+                const friends = await response.json();
+                allChats = friends;
+                displayChats(friends);
+                
+                // If there are friends, automatically select the first one (last chat)
+                if (friends && friends.length > 0) {
+                    const lastChatUser = friends[0];
+                    // Simulate clicking on the first chat item
+                    setTimeout(() => {
+                        const firstChatItem = document.querySelector('.chat-item');
+                        if (firstChatItem) {
+                            // Find the chat info div and simulate click
+                            const chatInfo = firstChatItem.querySelector('.chat-info');
+                            if (chatInfo) {
+                                chatInfo.click();
+                            }
+                        }
+                    }, 100);
+                }
+            } catch (error) {
+                console.error('Error loading chats:', error);
+            }
+        }
+
+        function displayChats(chats) {
+            const chatList = document.getElementById('chatList');
+            chatList.innerHTML = chats.map(friend => `
+                <div class="chat-item">
+                    <img src="${friend.image || 'https://via.placeholder.com/40'}" alt="Profile" class="chat-avatar" onclick="window.location.href='/user/${friend.id}'" style="cursor: pointer;">
+                    <div class="chat-info" onclick="openChat('${friend.id}')" style="cursor: pointer;">
+                        <div class="chat-name" onclick="window.location.href='/user/${friend.id}'; event.stopPropagation();" style="cursor: pointer;">${friend.name}</div>
+                        <div class="chat-last-message">Click to start chat</div>
+                        <div class="chat-time"></div>
+                    </div>
+                    <div class="online-status-indicator" id="online-status-${friend.id}"></div>
+                </div>
+            `).join('');
+        }
+
+        function searchChats() {
+            const searchTerm = document.querySelector('.search-input').value.toLowerCase();
+            const filteredChats = allChats.filter(chat => 
+                chat.name.toLowerCase().includes(searchTerm)
+            );
+            displayChats(filteredChats);
+        }
+
+        async function openChat(userId) {
+            // Remove active class from all chat items
+            document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
+            
+            // Find and activate the chat item for this user
+            const chatItem = document.querySelector(`.chat-info[onclick*="'${userId}'"]`);
+            if (chatItem) {
+                // Find the parent chat-item and add active class
+                const parentItem = chatItem.closest('.chat-item');
+                if (parentItem) {
+                    parentItem.classList.add('active');
+                }
+            }
+            
+            currentChatUser = userId;
+            
+            // Join the chat room
+            socket.emit('join', {room: `chat_${userId}`});
+            
+            // Update chat header info
+            const friend = allChats.find(f => f.id === userId);
+            if (friend) {
+                document.querySelector('.current-chat-name').textContent = friend.name;
+                document.querySelector('.current-chat-avatar').src = friend.image || 'https://via.placeholder.com/32';
+                document.querySelector('.current-chat-status').textContent = 'Online';
+            }
+            
+            // Load chat messages
+            await loadChatMessages(userId);
+        }
+
+        async function loadChatMessages(userId) {
+            try {
+                const response = await fetch(`/api/messages/${userId}`);
+                const messages = await response.json();
+                displayMessages(messages);
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        }
+
+        function displayMessages(messages) {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = messages.map(msg => `
+                <div class="message ${msg.sender_id === '{{ currentUserId }}' ? 'sent' : 'received'}">
+                    ${msg.sender_id !== '{{ currentUserId }}' ? `<img src="${msg.sender_image || 'https://via.placeholder.com/32'}" alt="Profile" class="message-avatar">` : ''}
+                    <div class="message-content">
+                        <div class="message-text">${msg.content}</div>
+                        ${msg.code_snippet ? `<div class="message-text code-message"><pre><code>${escapeHtml(msg.code_snippet)}</code></pre></div>` : ''}
+                        <div class="message-time">${formatTime(msg.created_at)}</div>
+                    </div>
+                </div>
+            `).join('');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function displayMessage(data) {
+            const chatMessages = document.getElementById('chatMessages');
+            const isCurrentUser = data.sender === '{{ user.first_name }}';
+            
+            chatMessages.innerHTML += `
+                <div class="message ${isCurrentUser ? 'sent' : 'received'}">
+                    ${!isCurrentUser ? `<img src="${data.sender_image || 'https://via.placeholder.com/32'}" alt="Profile" class="message-avatar">` : ''}
+                    <div class="message-content">
+                        <div class="message-text">${data.message}</div>
+                        ${data.code_snippet ? `<div class="message-text code-message"><pre><code>${escapeHtml(data.code_snippet)}</code></pre></div>` : ''}
+                        <div class="message-time">${formatTime(data.timestamp)}</div>
+                    </div>
+                </div>
+            `;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (message && currentChatUser) {
+                socket.emit('send_message', {
+                    room: `chat_${currentChatUser}`,
+                    message: message,
+                    code_snippet: null,
+                    receiver_id: currentChatUser
+                });
+                input.value = '';
+            }
+        }
+
+        function handleChatEnter(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function shareCodeInChat() {
+            // Get code from session storage or prompt user
+            const code = sessionStorage.getItem('uploadedCode') || '';
+            if (code) {
+                document.getElementById('chatInput').value = 'Check out this code:\n```\n' + code + '\n```';
+            } else {
+                alert('No code available to share. Please upload or write some code first.');
+            }
+        }
+
+        function attachFile() {
+            alert('File attachment feature will be implemented in a future update.');
+        }
+
+        function startVideoCall() {
+            alert('Video call feature will be implemented in a future update.');
+        }
+
+        function startVoiceCall() {
+            alert('Voice call feature will be implemented in a future update.');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        // Update friend's online status
+        function updateFriendStatus(userId) {
+            fetch(`/api/user-status/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const statusIndicator = document.getElementById(`online-status-${userId}`);
+                    if (statusIndicator) {
+                        if (data.is_online) {
+                            statusIndicator.className = 'online-status-indicator online';
+                            statusIndicator.title = 'Online';
+                        } else if (data.recently_active) {
+                            statusIndicator.className = 'online-status-indicator recently-active';
+                            statusIndicator.title = 'Recently active';
+                        } else if (data.last_seen) {
+                            const lastSeen = new Date(data.last_seen);
+                            const now = new Date();
+                            const diffMinutes = Math.floor((now - lastSeen) / (1000 * 60));
+                            statusIndicator.className = 'online-status-indicator offline';
+                            statusIndicator.title = `Last seen ${diffMinutes} minutes ago`;
+                        } else {
+                            statusIndicator.className = 'online-status-indicator offline';
+                            statusIndicator.title = 'Offline';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating friend status:', error);
+                });
+        }
+
+        // Load theme and initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            }
+            updateNavigationHistory();
+            
+            // Initialize Socket.IO
+            socket = io();
+            
+            // Socket event listeners
+            socket.on('receive_message', displayMessage);
+            socket.on('user_joined', (data) => {
+                console.log(data.user + ' joined the chat');
+            });
+            socket.on('user_left', (data) => {
+                console.log(data.user + ' left the chat');
+            });
+            
+            // Listen for user presence updates
+            socket.on('user_presence_update', function(data) {
+                updateUserPresenceIndicator(data);
+            });
+            
+            // Listen for new notifications
+            socket.on('new_notification', function(data) {
+                if (data.user_id === '{{ currentUserId }}') {
+                    // Show notification alert
+                    alert('You have a new notification!');
+                }
+            });
+            
+            // Join user's personal room for notifications
+            socket.emit('join', {room: `user_{{ currentUserId }}`});
+            
+            // Send user activity event to update presence
+            socket.emit('user_activity', {});
+            
+            // Load chats normally
+            loadChatsAndAutoSelect();
+        });
+
+        // Add function to update user presence indicators
+        function updateUserPresenceIndicator(data) {
+            const statusIndicator = document.getElementById(`online-status-${data.user_id}`);
+            if (statusIndicator) {
+                if (data.is_online) {
+                    statusIndicator.className = 'online-status-indicator online';
+                    statusIndicator.title = 'Online';
+                } else {
+                    statusIndicator.className = 'online-status-indicator offline';
+                    if (data.last_active) {
+                        const lastSeen = new Date(data.last_active);
+                        const now = new Date();
+                        const diffMinutes = Math.floor((now - lastSeen) / (1000 * 60));
+                        statusIndicator.title = `Last seen ${diffMinutes} minutes ago`;
+                    } else {
+                        statusIndicator.title = 'Offline';
+                    }
+                }
+            }
+        }
+
+    </script>
+</body>
+</html>

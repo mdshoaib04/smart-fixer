@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explore - SmartFixer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/explore.css') }}">
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-left">
+            <button class="back-btn" onclick="goBack()" title="Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5"/>
+                    <path d="M12 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            <div class="brand-logo">Explore</div>
+        </div>
+        
+        <div class="nav-right">
+            <a href="/notifications" class="notification-icon" title="Notifications">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            </a>
+            
+            <div class="theme-toggle" onclick="toggleTheme()" title="Theme">
+                <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="explore-container">
+        <!-- Search Bar -->
+        <div class="search-container">
+            <div class="search-bar">
+                <input type="text" id="userSearch" placeholder="Search users..." class="search-input">
+                <button class="search-button" onclick="searchUsers()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="search-results" id="searchResults" style="display: none;"></div>
+        </div>
+        
+        <div class="explore-header">
+            <h2>Explore Posts</h2>
+            <p>Discover amazing code from the community</p>
+        </div>
+        
+        <div class="feed" id="exploreFeed">
+            <!-- Posts will be loaded here -->
+            <div class="loading">Loading posts...</div>
+        </div>
+    </div>
+
+    <script>
+        // Navigation history management
+        let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
+        
+        function updateNavigationHistory() {
+            const currentPath = window.location.pathname;
+            if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
+                navigationHistory.push(currentPath);
+                if (navigationHistory.length > 10) {
+                    navigationHistory.shift();
+                }
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+            }
+        }
+        
+        function goBack() {
+            // Go back to the editor page
+            window.location.href = '/editor';
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            if (newTheme === 'dark') {
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            } else {
+                document.querySelector('.moon').style.display = 'block';
+                document.querySelector('.sun').style.display = 'none';
+            }
+        }
+
+        async function loadExplorePosts() {
+            try {
+                const response = await fetch('/api/explore-posts');
+                const posts = await response.json();
+                
+                const feed = document.getElementById('exploreFeed');
+                
+                if (posts.length === 0) {
+                    feed.innerHTML = `
+                        <div class="empty-state">
+                            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                <circle cx="12" cy="12" r="3"/>
+                                <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/>
+                            </svg>
+                            <h3>No posts found</h3>
+                            <p>Follow more users to see their posts here.</p>
+                        </div>
+                    `;
+                } else {
+                    feed.innerHTML = posts.map(post => `
+                        <div class="post-card">
+                            <div class="post-header">
+                                <img src="${post.author_image || 'https://via.placeholder.com/40'}" alt="${post.author_name}" class="post-avatar">
+                                <div class="post-author">
+                                    <div class="post-author-name" style="cursor: pointer; color: var(--primary-color);" onclick="window.location.href='/user/${post.user_id}'">${post.author_name}</div>
+                                    <div class="post-time">${timeAgo(new Date(post.created_at))}</div>
+                                </div>
+                                ${!post.is_friend_post ? `<button class="follow-btn" onclick="followUser('${post.user_id}', this)">Follow</button>` : ''}
+                            </div>
+                            
+                            <div class="post-content">
+                                <div class="post-description">${post.description || ''}</div>
+                                
+                                <div class="post-code">
+                                    <div class="post-language">${post.language}</div>
+                                    <pre><code>${escapeHtml(post.code)}</code></pre>
+                                </div>
+                            </div>
+                            
+                            <div class="post-actions">
+                                <button class="action-btn like-btn ${post.liked ? 'liked' : ''}" onclick="likePost(${post.id}, this)">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                    </svg>
+                                    <span>${post.likes}</span>
+                                </button>
+                                
+                                <button class="action-btn comment-btn" onclick="toggleComments(${post.id})">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                    </svg>
+                                    <span>${post.comments_count}</span>
+                                </button>
+                                
+                                <button class="action-btn share-btn" onclick="sharePost(${post.id})">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                                        <polyline points="16,6 12,2 8,6"/>
+                                        <line x1="12" y1="2" x2="12" y2="15"/>
+                                    </svg>
+                                    <span>Share</span>
+                                </button>
+                                
+                                <button class="action-btn save-btn ${post.saved ? 'saved' : ''}" onclick="savePost(${post.id}, this)" style="margin-left: auto;">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <div class="comments-section" id="comments-${post.id}" style="display: none;">
+                                <div class="add-comment">
+                                    <img src="{{ user.profile_image_url or 'https://via.placeholder.com/32' }}" alt="Your Profile" class="comment-avatar">
+                                    <input type="text" placeholder="Add a comment..." class="comment-input" data-post-id="${post.id}">
+                                    <button class="comment-submit" onclick="addComment(${post.id})">Post</button>
+                                </div>
+                                
+                                <div class="comments-list" id="comments-list-${post.id}">
+                                    <!-- Comments will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading explore posts:', error);
+                document.getElementById('exploreFeed').innerHTML = '<div class="error">Error loading posts. Please try again.</div>';
+            }
+        }
+
+        async function likePost(postId, button) {
+            try {
+                const response = await fetch(`/api/posts/${postId}/like`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const span = button.querySelector('span');
+                    span.textContent = data.likes;
+                    
+                    if (data.likes > parseInt(span.textContent)) {
+                        button.classList.add('liked');
+                    } else {
+                        button.classList.remove('liked');
+                    }
+                }
+            } catch (error) {
+                console.error('Error liking post:', error);
+            }
+        }
+
+        async function savePost(postId, button) {
+            try {
+                const response = await fetch(`/api/posts/${postId}/save`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.saved) {
+                        button.classList.add('saved');
+                    } else {
+                        button.classList.remove('saved');
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving post:', error);
+            }
+        }
+
+        async function toggleComments(postId) {
+            const commentsSection = document.getElementById(`comments-${postId}`);
+            const commentsList = document.getElementById(`comments-list-${postId}`);
+            
+            if (commentsSection.style.display === 'none') {
+                // Load comments
+                await loadComments(postId);
+                commentsSection.style.display = 'block';
+            } else {
+                commentsSection.style.display = 'none';
+            }
+        }
+
+        async function loadComments(postId) {
+            try {
+                const response = await fetch(`/api/posts/${postId}/comments`);
+                const comments = await response.json();
+                
+                const commentsList = document.getElementById(`comments-list-${postId}`);
+                commentsList.innerHTML = comments.map(comment => `
+                    <div class="comment">
+                        <img src="${comment.user_image || 'https://via.placeholder.com/32'}" alt="${comment.author_name}" class="comment-avatar">
+                        <div class="comment-content">
+                            <div class="comment-author" style="cursor: pointer; color: var(--primary-color);" onclick="window.location.href='/user/${comment.user_id}'">${comment.author_name}</div>
+                            <div class="comment-text">${comment.content}</div>
+                            <div class="comment-time">${timeAgo(new Date(comment.created_at))}</div>
+                            <button class="reply-btn" onclick="replyToComment(${comment.id})">Reply</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading comments:', error);
+            }
+        }
+
+        async function addComment(postId) {
+            const input = document.querySelector(`.comment-input[data-post-id="${postId}"]`);
+            const content = input.value.trim();
+            
+            if (!content) return;
+            
+            try {
+                const response = await fetch(`/api/posts/${postId}/comment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content: content })
+                });
+                
+                if (response.ok) {
+                    input.value = '';
+                    await loadComments(postId);
+                }
+            } catch (error) {
+                console.error('Error adding comment:', error);
+            }
+        }
+
+        function replyToComment(commentId) {
+            // Implementation for replying to a comment
+            alert('Reply functionality would be implemented here');
+        }
+
+        function sharePost(postId) {
+            // Copy post link to clipboard
+            const postUrl = `${window.location.origin}/post/${postId}`;
+            navigator.clipboard.writeText(postUrl).then(() => {
+                showNotification('Post link copied to clipboard!', 'success');
+            }).catch(() => {
+                showNotification('Failed to copy link', 'error');
+            });
+        }
+
+        async function followUser(userId, button) {
+            try {
+                const response = await fetch('/api/follow-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.action === 'requested' || data.action === 'accepted') {
+                        button.textContent = 'Following';
+                        button.classList.add('following');
+                    } else if (data.action === 'unfollowed') {
+                        button.textContent = 'Follow';
+                        button.classList.remove('following');
+                    }
+                }
+            } catch (error) {
+                console.error('Error following user:', error);
+            }
+        }
+
+        function timeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            
+            let interval = seconds / 31536000;
+            if (interval > 1) {
+                return Math.floor(interval) + " years ago";
+            }
+            
+            interval = seconds / 2592000;
+            if (interval > 1) {
+                return Math.floor(interval) + " months ago";
+            }
+            
+            interval = seconds / 86400;
+            if (interval > 1) {
+                return Math.floor(interval) + " days ago";
+            }
+            
+            interval = seconds / 3600;
+            if (interval > 1) {
+                return Math.floor(interval) + " hours ago";
+            }
+            
+            interval = seconds / 60;
+            if (interval > 1) {
+                return Math.floor(interval) + " minutes ago";
+            }
+            
+            return Math.floor(seconds) + " seconds ago";
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 10px;
+                color: white;
+                font-weight: 600;
+                z-index: 10000;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            `;
+            
+            switch(type) {
+                case 'success':
+                    notification.style.background = 'linear-gradient(135deg, #4caf50, #45a049)';
+                    break;
+                case 'error':
+                    notification.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+                    break;
+                default:
+                    notification.style.background = 'linear-gradient(135deg, #2196f3, #1976d2)';
+            }
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Search functionality
+        async function searchUsers() {
+            const searchInput = document.getElementById('userSearch');
+            const query = searchInput.value.trim();
+            const searchResults = document.getElementById('searchResults');
+            
+            if (!query) {
+                searchResults.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/search-users?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.users && data.users.length > 0) {
+                    displaySearchResults(data.users);
+                } else {
+                    searchResults.innerHTML = '<div class="no-results">No users found</div>';
+                    searchResults.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                searchResults.innerHTML = '<div class="no-results">Error searching users</div>';
+                searchResults.style.display = 'block';
+            }
+        }
+    
+        function displaySearchResults(users) {
+            const searchResults = document.getElementById('searchResults');
+            searchResults.innerHTML = '';
+            
+            users.forEach(user => {
+                const userElement = document.createElement('div');
+                userElement.className = 'search-result-item';
+                userElement.innerHTML = `
+                    <img src="${user.profile_image_url || 'https://via.placeholder.com/40'}" alt="${user.username}" class="result-avatar">
+                    <div class="result-info">
+                        <div class="result-name">${user.first_name} ${user.last_name}</div>
+                        <div class="result-username">@${user.username}</div>
+                    </div>
+                    <div class="result-actions">
+                        <button class="follow-btn ${user.is_following ? 'following' : ''}" data-user-id="${user.id}">
+                            ${user.is_following ? 'Following' : 'Follow'}
+                        </button>
+                        <button class="chat-btn" title="Chat with ${user.first_name}">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                searchResults.appendChild(userElement);
+                
+                // Add event listeners after the element is added to the DOM
+                const followBtn = userElement.querySelector('.follow-btn');
+                const chatBtn = userElement.querySelector('.chat-btn');
+                const userInfo = userElement.querySelector('.result-info');
+                
+                // Make the user info clickable to go to the profile
+                userInfo.style.cursor = 'pointer';
+                userInfo.addEventListener('click', function() {
+                    window.location.href = `/user/${user.id}`;
+                });
+                
+                followBtn.addEventListener('click', function(event) {
+                    event.stopPropagation(); // Prevent the click from bubbling to the user info
+                    toggleFollow(user.id, this);
+                });
+                
+                chatBtn.addEventListener('click', function(event) {
+                    event.stopPropagation(); // Prevent the click from bubbling to the user info
+                    startChat(user.id);
+                });
+            });
+            
+            searchResults.style.display = 'block';
+        }
+    
+        async function toggleFollow(userId, button) {
+            try {
+                // Show loading state
+                const originalText = button.textContent;
+                button.textContent = '...';
+                button.disabled = true;
+                
+                const response = await fetch('/api/follow-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: userId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update button based on action
+                    if (data.action === 'requested') {
+                        button.classList.add('following');
+                        button.textContent = 'Following';
+                    } else if (data.action === 'unfollowed') {
+                        button.classList.remove('following');
+                        button.textContent = 'Follow';
+                    } else if (data.action === 'cancelled') {
+                        button.classList.remove('following');
+                        button.textContent = 'Follow';
+                    }
+                } else {
+                    alert(data.error || 'Failed to update follow status');
+                    button.textContent = originalText;
+                }
+            } catch (error) {
+                console.error('Follow error:', error);
+                alert('Failed to update follow status');
+                button.textContent = originalText;
+            } finally {
+                button.disabled = false;
+            }
+        }
+    
+        function startChat(userId) {
+            // Redirect to chat page with the selected user
+            window.location.href = `/chat?user=${userId}`;
+        }
+    
+        // Add event listener for search input
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('userSearch');
+            
+            searchInput.addEventListener('input', function() {
+                // Debounce the search to avoid too many requests
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(searchUsers, 300);
+            });
+            
+            // Close search results when clicking outside
+            document.addEventListener('click', function(event) {
+                const searchContainer = document.querySelector('.search-container');
+                if (!searchContainer.contains(event.target)) {
+                    document.getElementById('searchResults').style.display = 'none';
+                }
+            });
+            
+            // Load theme and notifications on page load
+            document.addEventListener('DOMContentLoaded', function() {
+                const theme = localStorage.getItem('theme') || 'light';
+                if (theme === 'dark') {
+                    document.body.setAttribute('data-theme', 'dark');
+                    document.querySelector('.moon').style.display = 'none';
+                    document.querySelector('.sun').style.display = 'block';
+                }
+                updateNavigationHistory();
+                loadExplorePosts();
+                updateNotificationBadge(); // Update notification badge
+            });
+            
+            // Update notification badge
+            async function updateNotificationBadge() {
+                try {
+                    const response = await fetch('/api/notifications/unread-count');
+                    const data = await response.json();
+                    const badge = document.getElementById('notificationBadge');
+                    if (badge) {
+                        badge.textContent = data.count;
+                        badge.style.display = data.count > 0 ? 'flex' : 'none';
+                    }
+                } catch (error) {
+                    console.error('Failed to update notification badge:', error);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

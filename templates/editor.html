@@ -8,10 +8,18 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/eclipse.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/matchesonscrollbar.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/anyword-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/searchcursor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/match-highlighter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/matchesonscrollbar.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/annotatescrollbar.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
@@ -30,12 +38,20 @@
 <body class="editor-page">
     <div class="top-bar">
         <div class="top-left">
-            <div class="menu-icon" onclick="toggleMenu()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="5" r="1"/>
-                    <circle cx="12" cy="12" r="1"/>
-                    <circle cx="12" cy="19" r="1"/>
-                </svg>
+            <div class="nav-controls">
+                <button class="back-btn tooltip" data-tooltip="Back" onclick="goBack()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                
+                <div class="menu-icon tooltip" data-tooltip="Menu" onclick="toggleMenu()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="5" r="1"/>
+                        <circle cx="12" cy="12" r="1"/>
+                        <circle cx="12" cy="19" r="1"/>
+                    </svg>
+                </div>
             </div>
             
             <div class="dropdown-menu" id="dropdownMenu">
@@ -46,11 +62,11 @@
         </div>
         
         <div class="top-right">
-            <div class="theme-toggle" onclick="toggleTheme()">
+            <div class="theme-toggle tooltip" data-tooltip="Theme" onclick="toggleTheme()">
                 <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                 </svg>
-                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
                     <circle cx="12" cy="12" r="5"/>
                     <line x1="12" y1="1" x2="12" y2="3"/>
                     <line x1="12" y1="21" x2="12" y2="23"/>
@@ -63,31 +79,57 @@
                 </svg>
             </div>
             
-            <div class="chat-icon" onclick="toggleChat()">
+            <div class="notification-icon tooltip" data-tooltip="Notifications" onclick="openNotifications()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                <span class="notification-badge" id="notificationBadge">0</span>
+            </div>
+            
+            <div class="chat-icon tooltip" data-tooltip="Chat" onclick="window.location.href='/chat'">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                 </svg>
             </div>
             
-            <div class="profile-logo" onclick="toggleProfile()">
+            <div class="profile-logo tooltip" data-tooltip="Personal Details" onclick="toggleProfileDropdown()">
                 <span id="userInitials">{{ user.first_name[0] if user.first_name else 'U' }}{{ user.last_name[0] if user.last_name else '' }}</span>
+                
+                <div class="profile-dropdown" id="profileDropdown">
+                    <a href="#" onclick="openProfile(); return false;">👤 My Profile</a>
+                    <a href="#" onclick="openPosts(); return false;">📝 My Posts</a>
+                    <a href="#" onclick="openExplore(); return false;">🌐 Explore</a>
+                    <a href="#" onclick="openNotifications(); return false;">🔔 Notifications</a>
+                    <a href="{{ url_for('time_tracker') }}">⏱️ Time Spent</a>
+                    <a href="#" onclick="logout(); return false;">🚪 Logout</a>
+                </div>
             </div>
         </div>
     </div>
     
     <div class="main-interface">
         <div class="left-panel">
-            <div class="profession-selector">
-                <select id="professionSelect" onchange="updateProfession()">
-                    <option value="student">👨‍🎓 Student</option>
-                    <option value="professor">👨‍🏫 Professor</option>
-                    <option value="frontend">💻 Frontend Developer</option>
-                    <option value="backend">⚙️ Backend Developer</option>
-                    <option value="software_engineer">👨‍💼 Software Engineer</option>
-                    <option value="data_scientist">📊 Data Scientist</option>
-                    <option value="devops">🔧 DevOps Engineer</option>
-                    <option value="competitive_programmer">🏆 Competitive Programmer</option>
-                </select>
+            <div class="profession-selector-container">
+                <div class="profession-selector">
+                    <select id="professionSelect" onchange="updateProfession()">
+                        <option value="student">👨‍🎓 Student</option>
+                        <option value="professor">👨‍🏫 Professor</option>
+                        <option value="frontend">💻 Frontend Developer</option>
+                        <option value="backend">⚙️ Backend Developer</option>
+                        <option value="software_engineer">👨‍💼 Software Engineer</option>
+                        <option value="data_scientist">📊 Data Scientist</option>
+                        <option value="devops">🔧 DevOps Engineer</option>
+                        <option value="competitive_programmer">🏆 Competitive Programmer</option>
+                    </select>
+                </div>
+                <button id="clearCodeBtn" class="clear-code-btn" onclick="clearCode()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Clear Code
+                </button>
             </div>
             
             <div class="code-editor-container">
@@ -126,6 +168,32 @@
                 <div class="output-content" id="outputContent">
                     <p class="placeholder">Click Review, Explain, or Compile to see AI analysis...</p>
                 </div>
+                <div class="output-actions" id="outputActions" style="display: none;">
+                    <button class="output-action-btn" onclick="copyOutput()" title="Copy Output">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                        Copy
+                    </button>
+                    <button class="output-action-btn" onclick="shareOutput()" title="Share Output">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="18" cy="5" r="3"/>
+                            <circle cx="6" cy="12" r="3"/>
+                            <circle cx="18" cy="19" r="3"/>
+                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                        </svg>
+                        Share
+                    </button>
+                    <button class="output-action-btn" onclick="listenOutput()" title="Listen to Output">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                        </svg>
+                        Listen
+                    </button>
+                </div>
             </div>
             
             <div class="qna-container">
@@ -140,94 +208,37 @@
         </div>
     </div>
     
-    <div class="modal" id="profileModal">
-        <div class="modal-content profile-modal-content">
-            <span class="close" onclick="closeModal('profileModal')">&times;</span>
-            <div class="profile-tabs vertical-tabs">
-                <button class="tab-btn active" onclick="showTab('details')">👤 Personal Details</button>
-                <button class="tab-btn" onclick="showTab('posts')">📝 My Posts</button>
-                <button class="tab-btn" onclick="showTab('explore')">🌐 Explore</button>
-                <button class="tab-btn" onclick="showTab('friends')">👥 Friends</button>
-                <button class="tab-btn" onclick="showTab('notifications')">🔔 Notifications</button>
-                <button class="tab-btn" onclick="showTab('time')">⏱️ Time Spent</button>
-            </div>
-            
-            <div class="profile-tab-contents">
-                <div id="detailsTab" class="tab-content active">
-                    <div class="profile-details">
-                        <img src="{{ user.profile_image_url or 'https://via.placeholder.com/100' }}" alt="Profile" class="profile-image">
-                        <h3>{{ user.first_name }} {{ user.last_name }}</h3>
-                        <p>{{ user.email }}</p>
-                        <textarea id="bioInput" placeholder="Add a bio...">{{ user.bio or '' }}</textarea>
-                        <button onclick="updateProfile()">Update Profile</button>
-                    </div>
-                </div>
-                
-                <div id="postsTab" class="tab-content">
-                    <button onclick="showPostModal()">Share Code</button>
-                    <div id="postsList"></div>
-                </div>
-                
-                <div id="exploreTab" class="tab-content">
-                    <h3 style="margin-bottom: 1rem;">Explore Friends' Posts</h3>
-                    <div id="explorePostsList"></div>
-                </div>
-                
-                <div id="friendsTab" class="tab-content">
-                    <input type="email" id="friendEmail" placeholder="Enter friend's email">
-                    <button onclick="sendFriendRequest()">Send Request</button>
-                    <div id="friendsList"></div>
-                </div>
-                
-                <div id="notificationsTab" class="tab-content">
-                    <div id="notificationsList"></div>
-                </div>
-                
-                <div id="timeTab" class="tab-content">
-                    <h3>GitHub-Style Activity</h3>
-                    <div id="contributionGrid"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="modal" id="chatModal">
-        <div class="modal-content chat-content">
-            <span class="close" onclick="closeModal('chatModal')">&times;</span>
-            <h3>Chat / Messenger</h3>
-            <div id="friendsListChat"></div>
-            <div id="chatMessages"></div>
-            <div class="chat-input-container">
-                <input type="text" id="chatInput" placeholder="Type a message...">
-                <button onclick="sendMessage()">Send</button>
-            </div>
-        </div>
-    </div>
-    
     <div class="modal" id="dictionaryModal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('dictionaryModal')">&times;</span>
             <h3>Code Dictionary & Templates</h3>
             <select id="dictLanguage" onchange="updateDictionaryLanguage()">
-                <option value="Python">Python</option>
-                <option value="JavaScript">JavaScript</option>
-                <option value="Java">Java</option>
-                <option value="C++">C++</option>
                 <option value="C">C</option>
                 <option value="C#">C#</option>
-                <option value="Ruby">Ruby</option>
-                <option value="PHP">PHP</option>
-                <option value="Swift">Swift</option>
-                <option value="TypeScript">TypeScript</option>
+                <option value="C++">C++</option>
+                <option value="Clojure">Clojure</option>
+                <option value="Dart">Dart</option>
+                <option value="Elixir">Elixir</option>
                 <option value="Go">Go</option>
+                <option value="Haskell">Haskell</option>
+                <option value="Java">Java</option>
+                <option value="JavaScript">JavaScript</option>
+                <option value="Julia">Julia</option>
                 <option value="Kotlin">Kotlin</option>
+                <option value="Lua">Lua</option>
+                <option value="MATLAB">MATLAB</option>
+                <option value="Nim">Nim</option>
+                <option value="Perl">Perl</option>
+                <option value="PHP">PHP</option>
+                <option value="Python">Python</option>
+                <option value="R">R</option>
+                <option value="Ruby">Ruby</option>
                 <option value="Rust">Rust</option>
                 <option value="Scala">Scala</option>
-                <option value="Perl">Perl</option>
-                <option value="Dart">Dart</option>
-                <option value="Haskell">Haskell</option>
-                <option value="MATLAB">MATLAB</option>
-                <option value="R">R</option>
+                <option value="Swift">Swift</option>
+                <option value="TypeScript">TypeScript</option>
+                <option value="VB.NET">VB.NET</option>
+                <option value="Zig">Zig</option>
                 <option value="SQL">SQL</option>
                 <option value="Shell">Shell</option>
             </select>
@@ -247,25 +258,32 @@
                 <div class="translate-to">
                     <label>To:</label>
                     <select id="toLang">
-                        <option value="Python">Python</option>
-                        <option value="JavaScript">JavaScript</option>
-                        <option value="Java">Java</option>
-                        <option value="C++">C++</option>
                         <option value="C">C</option>
                         <option value="C#">C#</option>
-                        <option value="Ruby">Ruby</option>
-                        <option value="PHP">PHP</option>
-                        <option value="Swift">Swift</option>
-                        <option value="TypeScript">TypeScript</option>
+                        <option value="C++">C++</option>
+                        <option value="Clojure">Clojure</option>
+                        <option value="Dart">Dart</option>
+                        <option value="Elixir">Elixir</option>
                         <option value="Go">Go</option>
+                        <option value="Haskell">Haskell</option>
+                        <option value="Java">Java</option>
+                        <option value="JavaScript">JavaScript</option>
+                        <option value="Julia">Julia</option>
                         <option value="Kotlin">Kotlin</option>
+                        <option value="Lua">Lua</option>
+                        <option value="MATLAB">MATLAB</option>
+                        <option value="Nim">Nim</option>
+                        <option value="Perl">Perl</option>
+                        <option value="PHP">PHP</option>
+                        <option value="Python">Python</option>
+                        <option value="R">R</option>
+                        <option value="Ruby">Ruby</option>
                         <option value="Rust">Rust</option>
                         <option value="Scala">Scala</option>
-                        <option value="Perl">Perl</option>
-                        <option value="Dart">Dart</option>
-                        <option value="Haskell">Haskell</option>
-                        <option value="MATLAB">MATLAB</option>
-                        <option value="R">R</option>
+                        <option value="Swift">Swift</option>
+                        <option value="TypeScript">TypeScript</option>
+                        <option value="VB.NET">VB.NET</option>
+                        <option value="Zig">Zig</option>
                         <option value="SQL">SQL</option>
                         <option value="Shell">Shell</option>
                         <option value="Objective-C">Objective-C</option>
@@ -294,6 +312,34 @@
         </div>
     </div>
     
+    <!-- Share with Friends Modal -->
+    <div class="modal" id="shareFriendsModal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('shareFriendsModal')">&times;</span>
+            <h3>Share with Friends</h3>
+            <div class="friends-list" id="friendsList">
+                <div class="loading">Loading friends...</div>
+            </div>
+            <div class="share-actions">
+                <button class="cancel-btn" onclick="closeModal('shareFriendsModal')">Cancel</button>
+                <button class="share-btn" onclick="sendToSelectedFriends()">Send</button>
+            </div>
+        </div>
+    </div>
+    
     <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+    <script>
+        // Initialize Socket.IO for real-time chat functionality
+        const socket = io();
+        
+        // Socket event listeners
+        socket.on('receive_message', displayMessage);
+        socket.on('user_joined', (data) => {
+            console.log(data.user + ' joined the chat');
+        });
+        socket.on('user_left', (data) => {
+            console.log(data.user + ' left the chat');
+        });
+    </script>
 </body>
 </html>

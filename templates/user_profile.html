@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ target_user.first_name }} {{ target_user.last_name }} - Profile</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-left">
+            <button class="back-btn" onclick="goBack()" title="Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5"/>
+                    <path d="M12 19l-7-7 7-7"/>
+                </svg>
+            </button>
+            <div class="brand-logo">SmartFixer</div>
+        </div>
+        
+        <div class="nav-right">
+            <a href="/notifications" class="notification-icon" title="Notifications">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            </a>
+            
+            <div class="theme-toggle" onclick="toggleTheme()" title="Theme">
+                <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <div class="profile-container" data-location-enabled="{{ 'true' if target_user.location_enabled else 'false' }}">
+        <div class="profile-header">
+            <div class="profile-info">
+                <div class="profile-avatar">
+                    <img src="{{ target_user.profile_image_url or 'https://via.placeholder.com/150' }}" alt="Profile Picture" id="profileImage">
+                </div>
+                <div class="profile-details">
+                    <h1>{{ target_user.first_name }} {{ target_user.last_name }}</h1>
+                    {% if not is_current_user %}
+                        {% if not is_following %}
+                        <button class="follow-btn" id="followBtn" onclick="toggleFollow()">
+                            Follow
+                        </button>
+                        {% endif %}
+                    {% endif %}
+                    <div class="profile-stats">
+                        <div class="stat" onclick="showProfileTab('posts')">
+                            <span class="stat-number" id="postCount">{{ post_count }}</span>
+                            <span class="stat-label">Posts</span>
+                        </div>
+                        <div class="stat" onclick="window.location.href='/user/{{ target_user.id }}/followers'">
+                            <span class="stat-number" id="followerCount">{{ follower_count }}</span>
+                            <span class="stat-label">Followers</span>
+                        </div>
+                        <div class="stat" onclick="window.location.href='/user/{{ target_user.id }}/following'">
+                            <span class="stat-number" id="followingCount">{{ following_count }}</span>
+                            <span class="stat-label">Following</span>
+                        </div>
+                    </div>
+                    <div class="profile-presence" id="profilePresence">
+                        <!-- Presence status will be loaded here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="profile-bio">
+                <p>{{ target_user.bio or 'Code enthusiast 💻 | Building amazing things with AI ✨' }}</p>
+                <p class="profile-location">
+                    {% if target_user.location_enabled and target_user.location %}
+                        {{ target_user.location }}
+                    {% else %}
+                        🌍 Planet Earth
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        
+        <div class="profile-tabs">
+            <button class="tab-btn active" onclick="showProfileTab('posts')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="3" y="3" width="7" height="7"/>
+                    <rect x="14" y="3" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                Posts
+            </button>
+            <button class="tab-btn" onclick="showProfileTab('contributions')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"/>
+                    <path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
+                    <path d="M12 2v2"/>
+                    <path d="M12 22v-2"/>
+                    <path d="M4.93 4.93l1.41 1.41"/>
+                    <path d="M17.66 17.66l1.41 1.41"/>
+                    <path d="M2 12h2"/>
+                    <path d="M20 12h2"/>
+                    <path d="M6.34 17.66l-1.41 1.41"/>
+                    <path d="M19.07 4.93l-1.41 1.41"/>
+                </svg>
+                Contributions
+            </button>
+        </div>
+        
+        <div class="profile-content">
+            <div id="postsTab" class="tab-content active">
+                <div class="posts-grid" id="postsGrid">
+                    <!-- User posts will be loaded here -->
+                    {% if posts %}
+                        {% for post in posts %}
+                        <div class="post-thumbnail" onclick="window.location.href='/post/{{ post.id }}'">
+                            <div class="post-preview">
+                                <div class="code-preview">{{ post.code[:200] }}{% if post.code|length > 200 %}...{% endif %}</div>
+                            </div>
+                            <div class="post-overlay">
+                                <div class="overlay-stat">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                    </svg>
+                                    {{ post.likes }}
+                                </div>
+                                <div class="overlay-stat">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                    </svg>
+                                    {{ post.comments|length }}
+                                </div>
+                                <div class="overlay-stat save-stat" onclick="event.stopPropagation(); savePost('{{ post.id }}')">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="no-posts" id="noPostsMessage">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/>
+                        </svg>
+                        <h3>No posts yet</h3>
+                        <p>This user hasn't shared any code yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div id="contributionsTab" class="tab-content">
+                <div class="contributions-content">
+                    <h3>Time Spent Coding</h3>
+                    <div class="time-stats">
+                        <div class="time-stat-card">
+                            <div class="stat-value" id="todayHours">0</div>
+                            <div class="stat-label">Today (hrs)</div>
+                        </div>
+                        <div class="time-stat-card">
+                            <div class="stat-value" id="weekHours">0</div>
+                            <div class="stat-label">This Week (hrs)</div>
+                        </div>
+                        <div class="time-stat-card">
+                            <div class="stat-value" id="monthHours">0</div>
+                            <div class="stat-label">This Month (hrs)</div>
+                        </div>
+                        <div class="time-stat-card">
+                            <div class="stat-value" id="yearContributions">0</div>
+                            <div class="stat-label"><span id="currentYear">2025</span> (contribs)</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Contribution Graph -->
+                    <div class="contribution-graph">
+                        <div class="graph-container">
+                            <!-- Month Labels -->
+                            <div class="month-labels" id="monthLabels">
+                                <!-- Month labels will be populated by JavaScript -->
+                            </div>
+                            
+                            <!-- Contribution Grid -->
+                            <div class="contribution-grid" id="contributionGrid">
+                                <!-- Grid will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Contribution Legend -->
+                    <div class="contribution-legend">
+                        <span>Less</span>
+                        <div class="legend-colors">
+                            <div class="legend-color level-0" title="No activity"></div>
+                            <div class="legend-color level-1" title="1-3 hours"></div>
+                            <div class="legend-color level-2" title="4-6 hours"></div>
+                            <div class="legend-color level-3" title="7-9 hours"></div>
+                            <div class="legend-color level-4" title="10+ hours"></div>
+                        </div>
+                        <span>More</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Pass current user ID and target user ID to JavaScript
+        const currentUserId = "{{ user.id }}";
+        const targetUserId = "{{ target_user.id }}";
+        
+        // Navigation history management
+        let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
+        
+        function updateNavigationHistory() {
+            const currentPath = window.location.pathname;
+            if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
+                navigationHistory.push(currentPath);
+                if (navigationHistory.length > 10) {
+                    navigationHistory.shift();
+                }
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+            }
+        }
+        
+        function goBack() {
+            // Go back to the previous page
+            if (navigationHistory.length > 1) {
+                navigationHistory.pop();
+                const previousPage = navigationHistory.pop();
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+                window.location.href = previousPage || '/editor';
+            } else {
+                window.location.href = '/editor';
+            }
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            if (newTheme === 'dark') {
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            } else {
+                document.querySelector('.moon').style.display = 'block';
+                document.querySelector('.sun').style.display = 'none';
+            }
+        }
+
+        function showProfileTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // Load content for the selected tab
+            if (tabName === 'posts') {
+                // Posts are already loaded
+            } else if (tabName === 'contributions') {
+                loadContributionData();
+            }
+        }
+
+        async function toggleFollow() {
+            if (isCurrentUser) return;
+            
+            try {
+                const response = await fetch(`/api/follow-user`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: targetUserId })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const followBtn = document.getElementById('followBtn');
+                    
+                    if (data.action === 'requested') {
+                        followBtn.textContent = 'Requested';
+                        followBtn.classList.add('requested');
+                    } else if (data.action === 'unfollowed') {
+                        followBtn.textContent = 'Follow';
+                        followBtn.classList.remove('following');
+                        // Update follower count
+                        document.getElementById('followerCount').textContent = data.follower_count;
+                    } else if (data.action === 'cancelled') {
+                        followBtn.textContent = 'Follow';
+                        followBtn.classList.remove('requested');
+                    } else if (data.action === 'accepted') {
+                        // Remove the follow button when following
+                        if (followBtn) {
+                            followBtn.remove();
+                        }
+                        // Update follower count
+                        document.getElementById('followerCount').textContent = data.follower_count;
+                    }
+                }
+            } catch (error) {
+                console.error('Error following user:', error);
+            }
+        }
+
+        // Generate month labels for the contribution grid
+        function generateMonthLabels() {
+            const monthLabelsContainer = document.getElementById('monthLabels');
+            monthLabelsContainer.innerHTML = '';
+            
+            // GitHub-style month labels - show approximately every 3-4 weeks
+            const monthPositions = [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52];
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const currentMonth = new Date().getMonth();
+            
+            // Create empty spans for spacing, and month names at appropriate positions
+            for (let i = 0; i < 52; i++) {
+                const span = document.createElement('span');
+                if (monthPositions.includes(i)) {
+                    // Show month name at this position
+                    const monthIndex = (currentMonth - 11 + Math.floor(i / 4) + 12) % 12;
+                    span.textContent = monthNames[monthIndex];
+                } else {
+                    // Empty span for spacing
+                    span.textContent = '';
+                }
+                monthLabelsContainer.appendChild(span);
+            }
+        }
+
+        // Generate the contribution grid with real data (GitHub-style)
+        function generateContributionGrid(timeData) {
+            const grid = document.getElementById('contributionGrid');
+            grid.innerHTML = ''; // Clear existing grid
+            
+            // Generate month labels
+            generateMonthLabels();
+            
+            const today = new Date();
+            const startDate = new Date(today);
+            startDate.setFullYear(today.getFullYear() - 1); // Go back 1 year
+            
+            // Create a map of dates to minutes for quick lookup
+            const timeMap = {};
+            timeData.forEach(entry => {
+                timeMap[entry.date] = entry.minutes;
+            });
+            
+            // Create columns for each week (52 weeks)
+            for (let week = 0; week < 52; week++) {
+                const weekColumn = document.createElement('div');
+                weekColumn.className = 'week-column';
+                
+                // For each week, create boxes for all 7 days
+                for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+                    const currentDate = new Date(startDate);
+                    currentDate.setDate(startDate.getDate() + (week * 7) + dayIndex);
+                    
+                    if (currentDate > today) continue;
+                    
+                    const daySquare = document.createElement('div');
+                    daySquare.className = 'contribution-day';
+                    
+                    const dateStr = currentDate.toISOString().split('T')[0];
+                    const minutes = timeMap[dateStr] || 0;
+                    
+                    // Determine level based on hours
+                    let level = 0;
+                    const hours = Math.floor(minutes / 60);
+                    if (hours > 0) {
+                        if (hours <= 3) level = 1;
+                        else if (hours <= 6) level = 2;
+                        else if (hours <= 9) level = 3;
+                        else level = 4;
+                    }
+                    
+                    daySquare.classList.add(`level-${level}`);
+                    daySquare.setAttribute('data-date', dateStr);
+                    daySquare.setAttribute('data-minutes', minutes);
+                    
+                    // Add hover event to show time spent
+                    daySquare.addEventListener('mouseover', function() {
+                        const hours = Math.floor(minutes / 60);
+                        const mins = minutes % 60;
+                        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                        const dayName = dayNames[currentDate.getDay()];
+                        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        const monthName = monthNames[currentDate.getMonth()];
+                        const date = currentDate.getDate();
+                        const year = currentDate.getFullYear();
+                        
+                        // Format the date as "Oct 16, 2025"
+                        const formattedDate = `${monthName} ${date}, ${year}`;
+                        
+                        if (hours > 0 && mins > 0) {
+                            this.title = `${formattedDate}\n${hours}h ${mins}m`;
+                        } else if (hours > 0) {
+                            this.title = `${formattedDate}\n${hours}h`;
+                        } else if (mins > 0) {
+                            this.title = `${formattedDate}\n${mins}m`;
+                        } else {
+                            this.title = `${formattedDate}\nNo activity`;
+                        }
+                    });
+                    
+                    weekColumn.appendChild(daySquare);
+                }
+                
+                grid.appendChild(weekColumn);
+            }
+        }
+
+        // Update summary statistics
+        function updateSummaryStats(timeData) {
+            // Calculate today's hours
+            const today = new Date().toISOString().split('T')[0];
+            const todayData = timeData.find(entry => entry.date === today);
+            const todayHours = todayData ? Math.floor(todayData.minutes / 60) : 0;
+            document.getElementById('todayHours').textContent = todayHours;
+            
+            // Calculate this week's hours
+            const weekHours = calculateWeeklyHours(timeData);
+            document.getElementById('weekHours').textContent = weekHours;
+            
+            // Calculate this month's hours
+            const monthHours = calculateMonthlyHours(timeData);
+            document.getElementById('monthHours').textContent = monthHours;
+            
+            // Update total contributions
+            const totalMinutes = timeData.reduce((sum, entry) => sum + entry.minutes, 0);
+            const totalHours = Math.floor(totalMinutes / 60);
+            document.getElementById('yearContributions').textContent = `${totalHours} contributions`;
+            document.getElementById('currentYear').textContent = new Date().getFullYear();
+        }
+
+        // Calculate hours for the current week
+        function calculateWeeklyHours(timeData) {
+            const today = new Date();
+            const weekAgo = new Date(today);
+            weekAgo.setDate(today.getDate() - 7);
+            
+            const weeklyData = timeData.filter(entry => {
+                const entryDate = new Date(entry.date);
+                return entryDate >= weekAgo && entryDate <= today;
+            });
+            
+            const totalMinutes = weeklyData.reduce((sum, entry) => sum + entry.minutes, 0);
+            return Math.floor(totalMinutes / 60);
+        }
+
+        // Calculate hours for the current month
+        function calculateMonthlyHours(timeData) {
+            const today = new Date();
+            const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            
+            const monthlyData = timeData.filter(entry => {
+                const entryDate = new Date(entry.date);
+                return entryDate >= firstDayOfMonth && entryDate <= today;
+            });
+            
+            const totalMinutes = monthlyData.reduce((sum, entry) => sum + entry.minutes, 0);
+            return Math.floor(totalMinutes / 60);
+        }
+
+        async function loadContributionData() {
+            try {
+                const response = await fetch(`/api/user/${targetUserId}/time-spent`);
+                if (response.ok) {
+                    const data = await response.json();
+                    generateContributionGrid(data.entries);
+                    updateSummaryStats(data.entries);
+                }
+            } catch (error) {
+                console.error('Error loading contribution data:', error);
+            }
+        }
+
+        async function savePost(postId) {
+            try {
+                const response = await fetch(`/api/posts/${postId}/save`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.saved) {
+                        showNotification('Post saved!', 'success');
+                    } else {
+                        showNotification('Post unsaved', 'success');
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving post:', error);
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 10px;
+                color: white;
+                font-weight: 600;
+                z-index: 10000;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            `;
+            
+            switch(type) {
+                case 'success':
+                    notification.style.background = 'linear-gradient(135deg, #4caf50, #45a049)';
+                    break;
+                case 'error':
+                    notification.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+                    break;
+                default:
+                    notification.style.background = 'linear-gradient(135deg, #2196f3, #1976d2)';
+            }
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Load theme on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            }
+            updateNavigationHistory();
+            
+            // Set up follow button if not current user and not already following
+            const isCurrentUser = "{{ 'true' if is_current_user else 'false' }}";
+            const isFollowing = "{{ 'true' if is_following else 'false' }}";
+            
+            if (isCurrentUser === "false" && isFollowing === "true") {
+                // Remove follow button if already following
+                const followBtn = document.getElementById('followBtn');
+                if (followBtn) {
+                    followBtn.remove();
+                }
+            }
+            
+            // Fetch user presence status for the target user
+            fetchUserPresence(targetUserId);
+            
+            // Set up periodic updates for user presence
+            setInterval(() => fetchUserPresence(targetUserId), 60000); // Update every minute
+        });
+
+        async function fetchUserPresence(userId) {
+            try {
+                const response = await fetch(`/api/user-presence/${userId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const presenceElement = document.getElementById('profilePresence');
+                    
+                    if (presenceElement) {
+                        if (data.is_online) {
+                            presenceElement.innerHTML = `<span class="presence-indicator online"></span> Online`;
+                        } else {
+                            presenceElement.innerHTML = `<span class="presence-indicator offline"></span> ${data.status}`;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching user presence:', error);
+            }
+        }
+
+        // Add CSS for presence indicators
+        const presenceStyle = document.createElement('style');
+        presenceStyle.textContent = `
+            .profile-presence {
+                margin-top: 10px;
+                font-size: 0.9rem;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .presence-indicator {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                display: inline-block;
+            }
+            
+            .presence-indicator.online {
+                background-color: #22c55e; /* Green for online */
+            }
+            
+            .presence-indicator.offline {
+                background-color: #94a3b8; /* Gray for offline */
+            }
+        `;
+        document.head.appendChild(presenceStyle);
+
+    </script>
+</body>
+</html>

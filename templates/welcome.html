@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Smart Code Reviewer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="welcome-page" data-theme="light">
+    <!-- Futuristic Navigation Bar -->
+    <nav class="nav-bar">
+        <div class="nav-left">
+            <div class="brand-logo">🚀 SmartFixer</div>
+        </div>
+        <div class="nav-right">
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
+                <span class="theme-icon">🌙</span>
+            </button>
+        </div>
+    </nav>
+    
+    <!-- Modal for choosing between website and app -->
+    <div id="appChoiceModal" class="modal">
+        <div class="modal-content glass-card">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>How would you like to use SmartFixer?</h2>
+            <p>Choose your preferred way to access the application:</p>
+            
+            <div class="choice-options">
+                <div class="choice-option glass-card" onclick="continueWithWebsite()">
+                    <div class="choice-icon">🌐</div>
+                    <h3>Continue with Website</h3>
+                    <p>Access SmartFixer directly in your browser</p>
+                </div>
+                
+                <div class="choice-option glass-card" onclick="showDownloadOptions()">
+                    <div class="choice-icon">📱</div>
+                    <h3>Download Application</h3>
+                    <p>Install SmartFixer as a desktop/mobile app</p>
+                </div>
+            </div>
+            
+            <div id="appDownloadSection" style="display: none; margin-top: 2rem; text-align: center;">
+                <h3>Download SmartFixer Application</h3>
+                <p>Scan the QR code or click the link below to download</p>
+                
+                <!-- QR Code for downloading the app -->
+                <div class="qr-code-container" style="margin: 1.5rem 0;">
+                    <!-- Using our local QR code generator -->
+                    <img src="/qr-code?url={{ request.url_root }}download-app" alt="QR Code to download SmartFixer app" style="width: 200px; height: 200px; border: 10px solid white; border-radius: 10px;">
+                </div>
+                
+                <a href="/download-app" class="cyber-button" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                    <span>⬇️</span> Click Here to Download the Application
+                </a>
+                
+                <div style="margin-top: 1rem;">
+                    <p style="font-size: 0.9rem; color: var(--text-color); opacity: 0.8;">
+                        <strong>Windows Users:</strong> Download the .exe file for easy installation
+                    </p>
+                    <p style="font-size: 0.9rem; color: var(--text-color); opacity: 0.8;">
+                        <strong>Other Platforms:</strong> Download the ZIP file with Python scripts
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="welcome-container" style="margin-top: 100px;">
+        <h1 class="welcome-title neon-text">Welcome to SmartFixer</h1>
+        <p class="welcome-subtitle">Your AI-powered coding companion for smarter development</p>
+        
+        <div class="features-showcase glass-card">
+            <h2 style="text-align: center; color: var(--accent-color); margin-bottom: 2rem;">What You Can Do:</h2>
+            
+            <div class="features-grid">
+                <div class="feature-item glass-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3>Code Review</h3>
+                    <p>Get AI-powered analysis of your code quality, bugs, and best practices</p>
+                </div>
+                
+                <div class="feature-item glass-card">
+                    <div class="feature-icon">📚</div>
+                    <h3>Code Explanation</h3>
+                    <p>Understand complex code with detailed, easy-to-follow explanations</p>
+                </div>
+                
+                <div class="feature-item glass-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Language Translation</h3>
+                    <p>Convert code between different programming languages seamlessly</p>
+                </div>
+                
+                <div class="feature-item glass-card">
+                    <div class="feature-icon">💻</div>
+                    <h3>Live Code Editor</h3>
+                    <p>Write and test your code in our professional VS Code-style editor</p>
+                </div>
+                
+                <div class="feature-item glass-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI Assistant</h3>
+                    <p>Ask questions about programming and get instant, intelligent answers</p>
+                </div>
+                
+                <div class="feature-item glass-card">
+                    <div class="feature-icon">📖</div>
+                    <h3>Code Dictionary</h3>
+                    <p>Quick reference and examples for programming concepts and syntax</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="start-button-container">
+            <button class="cyber-button start-button" onclick="openAppChoiceModal()">
+                Start Your Coding Journey
+                <span class="start-arrow">→</span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="animated-bg">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+    
+    <script>
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            const themeIcon = document.querySelector('.theme-icon');
+            
+            body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            themeIcon.textContent = newTheme === 'light' ? '🌙' : '☀️';
+        }
+        
+        // Load saved theme
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            const themeIcon = document.querySelector('.theme-icon');
+            
+            document.body.setAttribute('data-theme', savedTheme);
+            themeIcon.textContent = savedTheme === 'light' ? '🌙' : '☀️';
+        });
+        
+        // App choice modal functions
+        function openAppChoiceModal() {
+            document.getElementById('appChoiceModal').classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('appChoiceModal').classList.remove('active');
+        }
+        
+        function continueWithWebsite() {
+            window.location.href = '/auth';
+        }
+        
+        function showDownloadOptions() {
+            document.getElementById('appDownloadSection').style.display = 'block';
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('appChoiceModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
