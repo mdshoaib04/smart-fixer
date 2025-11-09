@@ -61,12 +61,8 @@ coverage.xml
 
 # OS generated files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
+ehthumbs.db
 
 # Editor files
 *.swp
@@ -75,9 +71,14 @@ Thumbs.db
 
 # Local files not to be committed
 *.local
-*.backup
-*.old
 *.bak
+
+# Backups
+*.backup
+*.db.backup
+*.old
+site.db.backup
+smartfixer.db.backup
 
 # Distribution files
 *.exe
@@ -100,15 +101,33 @@ node_modules/
 # Tesseract setup files
 tesseract*.exe
 
-# Downloaded files
-downloaded_app.bat
-test-downloaded*
+# Windows installer artifacts
+*.msi
+*.dll
+*.pyd
 
-# Backup files
-*.backup
-*.old
+# PyInstaller
+*.manifest
+dist/
+build/
 
-# Local database backups
-*.db.backup
-site.db.backup
-smartfixer.db.backup
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

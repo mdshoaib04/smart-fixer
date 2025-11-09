@@ -107,6 +107,30 @@ class Comment(db.Model):
     
     user = db.relationship('User', backref='comments')
 
+class FollowRequest(db.Model):
+    __tablename__ = 'follow_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    from_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    to_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    status = db.Column(db.String, default='pending')  # pending, accepted, rejected
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    from_user = db.relationship('User', foreign_keys=[from_user_id], backref='sent_follow_requests')
+    to_user = db.relationship('User', foreign_keys=[to_user_id], backref='received_follow_requests')
+    __table_args__ = (UniqueConstraint('from_user_id', 'to_user_id', name='uq_follow_request'),)
+
+class Follower(db.Model):
+    __tablename__ = 'followers'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)  # The user being followed
+    follower_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)  # The user who is following
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    
+    user = db.relationship('User', foreign_keys=[user_id], backref='followers_list')
+    follower = db.relationship('User', foreign_keys=[follower_id], backref='following_list')
+    __table_args__ = (UniqueConstraint('user_id', 'follower_id', name='uq_follower'),)
+
 class Friendship(db.Model):
     __tablename__ = 'friendships'
     id = db.Column(db.Integer, primary_key=True)
@@ -153,10 +177,10 @@ class Notification(db.Model):
     __tablename__ = 'notifications'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
-    type = db.Column(db.String, nullable=False)
-    content = db.Column(db.Text, nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    type = db.Column(db.String, nullable=False)  # follow_request, accepted, follow_back, like, comment, system_update
     from_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
-    read = db.Column(db.Boolean, default=False)
+    read_status = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
     
     from_user = db.relationship('User', foreign_keys=[from_user_id])

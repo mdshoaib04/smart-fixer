@@ -61,10 +61,17 @@ function toggleTheme() {
 }
 
 let editor;
-let currentLanguage = 'python';
+let currentLanguage = 'python'; // Default to Python
 let currentProfession = 'student';
 let socket;
 let languageDetectionTimeout = null;
+
+// Update the display of the detected language
+function updateLanguageDisplay(language) {
+    // Language display has been removed per user request
+    // Function kept for potential future use
+    console.log('Detected language:', language);
+}
 
 // Define language-specific keywords and functions for autocomplete
 const languageHints = {
@@ -172,9 +179,10 @@ function getCustomHint(cm, options) {
 function clearCode() {
     if (editor) {
         editor.setValue('');
-        document.getElementById('outputContent').innerHTML = '<p class="placeholder">Click Review, Explain, or Compile to see AI analysis...</p>';
-        document.getElementById('outputActions').style.display = 'none';
     }
+    document.getElementById('outputContent').innerHTML = '<p class="placeholder">Click Compile to execute your code...</p>';
+    document.getElementById('outputActions').style.display = 'none';
+    document.getElementById('inputContainer').style.display = 'none';
 }
 
 // Test Gemini API function
@@ -193,6 +201,13 @@ async function testGeminiAPI() {
     } catch (error) {
         showError('Failed to test Gemini API. Please try again.');
     }
+}
+
+// Get code from current editor
+function getCurrentCode() {
+    const code = editor ? editor.getValue() : '';
+    console.log('Current code:', code);
+    return code;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -228,6 +243,8 @@ document.addEventListener('DOMContentLoaded', function() {
             socket.emit('user_activity', {});
         }
     });
+    
+
 
     const uploadedCode = sessionStorage.getItem('uploadedCode');
     const detectedLanguage = sessionStorage.getItem('detectedLanguage');
@@ -253,11 +270,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         body: JSON.stringify({code: code})
                     });
                     const data = await response.json();
-                    currentLanguage = data.language;
-                    updateEditorMode(currentLanguage);
+                    if (data.success) {
+                        currentLanguage = data.language;
+                        updateEditorMode(currentLanguage);
+                        // updateLanguageDisplay removed per user request
+                    }
                 } catch (error) {
                     console.error('Language detection failed:', error);
                 }
+            } else if (code.trim().length === 0) {
+                // If code is empty, reset to default
+                currentLanguage = 'python';
+                updateEditorMode(currentLanguage);
+                // updateLanguageDisplay removed per user request
             }
         }, 1000); // Wait 1 second after user stops typing
     });
@@ -277,6 +302,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     socket.on('receive_message', function(data) {
         displayMessage(data);
+        
+        // Update chat badge when a new message arrives
+        updateChatBadge();
     });
 
     socket.on('user_joined', function(data) {
@@ -303,6 +331,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Handle presence updates if needed
         console.log('User presence update:', data);
     });
+    
+    // Listen for new chat messages
+    socket.on('new_chat_message', function(data) {
+        // Update chat badge when a new message arrives
+        updateChatBadge();
+        displayMessage(data);
+    });
 });
 
 // Profile dropdown toggle
@@ -324,6 +359,79 @@ document.addEventListener('click', function(event) {
 // Toggle chat - now navigates to chat page
 function toggleChat() {
     window.location.href = '/chat';
+}
+
+// Open chat page and reset chat badge
+function openChat() {
+    // Reset chat badge when user opens chat
+    const badge = document.getElementById('chatBadge');
+    if (badge) {
+        badge.textContent = '0';
+        badge.style.display = 'none';
+    }
+    window.location.href = '/chat';
+}
+
+// Display message function
+function displayMessage(data) {
+    // This would display chat messages in a chat interface
+    console.log('New message:', data);
+    
+    // Update chat badge when a new message arrives
+    updateChatBadge();
+}
+
+// Temporary function to simulate receiving a chat message (for testing)
+function simulateNewChatMessage() {
+    // This simulates receiving a new chat message
+    const event = new CustomEvent('socket:new_chat_message', {
+        detail: { message: 'New message received' }
+    });
+    window.dispatchEvent(event);
+    
+    // Update chat badge
+    updateChatBadge();
+}
+
+// Add event listener for the custom event
+window.addEventListener('socket:new_chat_message', function(event) {
+    console.log('Received new chat message:', event.detail.message);
+});
+
+// Update notification badge
+async function updateNotificationBadge() {
+    try {
+        const response = await fetch('/api/notifications/unread-count');
+        const data = await response.json();
+        const badge = document.getElementById('notificationBadge');
+        if (badge) {
+            badge.textContent = data.count;
+            badge.style.display = data.count > 0 ? 'flex' : 'none';
+        }
+    } catch (error) {
+        console.error('Failed to update notification badge:', error);
+    }
+}
+
+// Update chat badge
+async function updateChatBadge() {
+    try {
+        const response = await fetch('/api/chats/unread-count');
+        const data = await response.json();
+        const badge = document.getElementById('chatBadge');
+        if (badge) {
+            badge.textContent = data.count;
+            badge.style.display = data.count > 0 ? 'flex' : 'none';
+        }
+    } catch (error) {
+        console.error('Failed to update chat badge:', error);
+    }
+}
+
+// Show notification (placeholder)
+function showNotification(message, type) {
+    // This is a placeholder - in a full implementation, this would show a notification
+    console.log(`${type}: ${message}`);
 }
 
 // Open notifications
@@ -532,3 +640,505 @@ document.addEventListener('click', function(event) {
         profileDropdown.classList.remove('active');
     }
 });
+
+// Show loading indicator
+function showLoading(message) {
+    const outputContent = document.getElementById('outputContent');
+    outputContent.innerHTML = `<div class="loading">${message}</div>`;
+    document.getElementById('outputActions').style.display = 'none';
+    document.getElementById('inputContainer').style.display = 'none';
+}
+
+// Show error message
+function showError(message) {
+    const outputContent = document.getElementById('outputContent');
+    outputContent.innerHTML = `<div class="error">${message}</div>`;
+    document.getElementById('outputActions').style.display = 'none';
+    // Don't hide input container for interactive programs
+    // document.getElementById('inputContainer').style.display = 'none';
+}
+
+// Show output actions (copy, share, listen)
+function showOutputActions() {
+    document.getElementById('outputActions').style.display = 'flex';
+    // Hide input container by default
+    document.getElementById('inputContainer').style.display = 'none';
+}
+
+// Typewriter effect for output
+function typewriterEffect(text) {
+    const outputContent = document.getElementById('outputContent');
+    outputContent.innerHTML = '';
+    currentOutput = text;
+    
+    let i = 0;
+    const speed = 10; // typing speed in milliseconds
+    
+    function typeWriter() {
+        if (i < text.length) {
+            outputContent.innerHTML += text.charAt(i);
+            outputContent.scrollTop = outputContent.scrollHeight;
+            i++;
+            setTimeout(typeWriter, speed);
+        } else {
+            showOutputActions(); // Show copy, share, listen buttons when done
+        }
+    }
+    
+    typeWriter();
+}
+
+// Render HTML in output area
+function renderHTML(htmlContent) {
+    const outputContent = document.getElementById('outputContent');
+    outputContent.innerHTML = `
+        <iframe 
+            srcdoc="${htmlContent.replace(/"/g, '&quot;')}" 
+            style="width:100%; height:400px; border:none;">
+        </iframe>
+    `;
+    showOutputActions();
+}
+
+// Handle input for interactive programs
+function handleInput() {
+    const input = document.getElementById('userInput').value;
+    if (input) {
+        // Show the input in the output area
+        const outputContent = document.getElementById('outputContent');
+        outputContent.innerHTML += `\n> ${input}`;
+        
+        // In a real implementation, we would send this input to the running process
+        // For now, we'll just clear the input field and scroll
+        document.getElementById('userInput').value = '';
+        outputContent.scrollTop = outputContent.scrollHeight;
+    }
+}
+
+// Update profession
+function updateProfession() {
+    currentProfession = document.getElementById('professionSelect').value;
+}
+
+// Update editor mode based on language
+function updateEditorMode(language) {
+    const modeMap = {
+        'python': 'python',
+        'javascript': 'javascript',
+        'java': 'text/x-java',
+        'c++': 'text/x-c++src',
+        'cpp': 'text/x-c++src',
+        'c': 'text/x-csrc',
+        'html': 'htmlmixed',
+        'css': 'css',
+        'php': 'php',
+        'ruby': 'ruby',
+        'go': 'go',
+        'rust': 'rust',
+        'swift': 'swift',
+        'sql': 'sql',
+        'shell': 'shell'
+    };
+    
+    const mode = modeMap[language.toLowerCase()] || 'python';
+    editor.setOption('mode', mode);
+}
+
+// Review code function
+async function reviewCode() {
+    const code = getCurrentCode();
+    if (!code.trim()) {
+        showError('Please enter some code to review.');
+        return;
+    }
+    
+    showLoading('Reviewing your code...');
+    
+    try {
+        const response = await fetch('/api/review', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                code: code,
+                language: currentLanguage,
+                profession: currentProfession
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            typewriterEffect(data.result);
+        } else {
+            showError(data.result || 'Failed to review code.');
+        }
+    } catch (error) {
+        showError('Failed to review code. Please try again.');
+        console.error('Review error:', error);
+    }
+}
+
+// Explain code function
+async function explainCode() {
+    const code = getCurrentCode();
+    if (!code.trim()) {
+        showError('Please enter some code to explain.');
+        return;
+    }
+    
+    showLoading('Explaining your code...');
+    
+    try {
+        const response = await fetch('/api/explain', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                code: code,
+                language: currentLanguage,
+                profession: currentProfession
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            typewriterEffect(data.result);
+        } else {
+            showError(data.result || 'Failed to explain code.');
+        }
+    } catch (error) {
+        showError('Failed to explain code. Please try again.');
+        console.error('Explain error:', error);
+    }
+}
+
+// Global variable to track if we're running an interactive program
+let isInteractiveProgram = false;
+let programExecutionId = null;
+
+// Compile code function
+async function compileCode() {
+    console.log('compileCode function called');
+    
+    const code = getCurrentCode();
+    console.log('Code to compile:', code);
+    
+    if (!code.trim()) {
+        console.log('No code to compile');
+        showError('Please enter some code to compile.');
+        return;
+    }
+    
+    showLoading('Executing your code...');
+    
+    try {
+        console.log('Sending request to /api/execute with data:', {
+            code: code,
+            language: currentLanguage
+        });
+        
+        const response = await fetch('/api/execute', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                code: code,
+                language: currentLanguage
+            })
+        });
+        
+        // Log the response for debugging
+        console.log('API Response Status:', response.status);
+        console.log('API Response Object:', response);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API Error Response Text:', errorText);
+            showError(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
+            return;
+        }
+        
+        const data = await response.json();
+        console.log('API Response Data:', data);
+        
+        if (data.success) {
+            // Check the type of result
+            if (data.type === 'html') {
+                // For HTML, render in an iframe
+                renderHTML(data.result);
+            } else if (data.type === 'output') {
+                // For regular output
+                typewriterEffect(data.result);
+                // Check if the output suggests the program is waiting for input
+                if (shouldShowInputContainer(data.result)) {
+                    showInputContainer();
+                }
+            } else if (data.type === 'error') {
+                // For errors
+                showError(data.result);
+                // Show input container for interactive programs that might still need input
+                if (shouldShowInputContainer(data.result)) {
+                    showInputContainer();
+                }
+            } else {
+                // For simulation results
+                typewriterEffect(data.result);
+            }
+        } else {
+            showError(data.result || 'Failed to execute code.');
+        }
+    } catch (error) {
+        console.error('Execute error:', error);
+        showError('Failed to execute code. Please try again. Error: ' + error.message);
+    }
+}
+
+// Render HTML in output area
+function renderHTML(htmlContent) {
+    const outputContent = document.getElementById('outputContent');
+    outputContent.innerHTML = `
+        <iframe 
+            srcdoc="${htmlContent.replace(/"/g, '&quot;')}" 
+            style="width:100%; height:400px; border:none;"
+            sandbox="allow-scripts allow-same-origin">
+        </iframe>
+    `;
+    showOutputActions();
+}
+
+// Show input container for interactive programs
+function showInputContainer() {
+    document.getElementById('inputContainer').style.display = 'flex';
+    document.getElementById('userInput').focus();
+}
+
+// Hide input container
+function hideInputContainer() {
+    document.getElementById('inputContainer').style.display = 'none';
+    document.getElementById('userInput').value = '';
+}
+
+// Check if we should show the input container based on the output
+function shouldShowInputContainer(output) {
+    if (!output) return false;
+    
+    // Common patterns that indicate a program is waiting for input
+    const inputIndicators = [
+        'Enter', 'input', 'please', 'num', 'value', 'choice',
+        'select', 'option', 'enter a', 'enter the', 'provide',
+        'type', 'insert', 'write', 'key in'
+    ];
+    
+    // Check if output ends with a prompt character
+    if (output.trim().endsWith(':') || output.trim().endsWith('?')) {
+        return true;
+    }
+    
+    // Check for common input indicators
+    const lowerOutput = output.toLowerCase();
+    return inputIndicators.some(indicator => lowerOutput.includes(indicator));
+}
+
+// Handle input for interactive programs
+async function handleInput() {
+    const input = document.getElementById('userInput').value;
+    if (input) {
+        // Show the input in the output area
+        const outputContent = document.getElementById('outputContent');
+        outputContent.innerHTML += `\n> ${input}\n`;
+        
+        // Scroll to bottom
+        outputContent.scrollTop = outputContent.scrollHeight;
+        
+        // Clear the input field
+        document.getElementById('userInput').value = '';
+        
+        // Send input to the server for processing
+        try {
+            const response = await fetch('/api/send-input', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    execution_id: programExecutionId,
+                    input: input
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                // Append the program's response to output
+                if (data.output) {
+                    outputContent.innerHTML += data.output;
+                    outputContent.scrollTop = outputContent.scrollHeight;
+                }
+                
+                // Check if program is still waiting for more input
+                if (data.waiting_for_input) {
+                    showInputContainer();
+                } else {
+                    hideInputContainer();
+                }
+            } else {
+                showError(data.result || 'Failed to send input to program.');
+                hideInputContainer();
+            }
+        } catch (error) {
+            showError('Failed to send input to program. Please try again.');
+            console.error('Input error:', error);
+            hideInputContainer();
+        }
+    }
+}
+
+// Ask question function
+async function askQuestion() {
+    const question = document.getElementById('qnaInput').value.trim();
+    const code = getCurrentCode();
+    
+    if (!question) {
+        showError('Please enter a question.');
+        return;
+    }
+    
+    showLoading('Thinking...');
+    
+    try {
+        const response = await fetch('/api/question', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                question: question,
+                code: code,
+                language: currentLanguage
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            typewriterEffect(data.result);
+            document.getElementById('qnaInput').value = '';
+        } else {
+            showError(data.result || 'Failed to answer question.');
+        }
+    } catch (error) {
+        showError('Failed to answer question. Please try again.');
+        console.error('Question error:', error);
+    }
+}
+
+// Handle enter key in Q&A input
+function handleQnAEnter(event) {
+    if (event.key === 'Enter') {
+        askQuestion();
+    }
+}
+
+// Copy output function
+function copyOutput() {
+    navigator.clipboard.writeText(currentOutput).then(() => {
+        // Show confirmation
+        const copyBtn = document.querySelector('.output-action-btn');
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+        setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+        }, 2000);
+    });
+}
+
+// Share output function
+function shareOutput() {
+    // For now, just copy to clipboard
+    copyOutput();
+}
+
+// Listen to output function
+function listenOutput() {
+    // Simple text-to-speech
+    if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(currentOutput);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        speechSynthesis.speak(utterance);
+    } else {
+        alert('Text-to-speech not supported in your browser.');
+    }
+}
+
+// Translate code function
+async function translateCode() {
+    const code = editor.getValue();
+    const toLang = document.getElementById('toLang').value;
+    
+    if (!code.trim()) {
+        alert('Please enter some code to translate.');
+        return;
+    }
+    
+    if (currentLanguage === toLang) {
+        alert('Source and target languages are the same.');
+        return;
+    }
+    
+    const translateResult = document.getElementById('translateResult');
+    translateResult.innerHTML = '<div class="loading">Translating code...</div>';
+    
+    try {
+        const response = await fetch('/api/translate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                code: code,
+                from_lang: currentLanguage,
+                to_lang: toLang
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            translateResult.innerHTML = `<pre><code>${data.result}</code></pre>`;
+        } else {
+            translateResult.innerHTML = `<div class="error">${data.result || 'Failed to translate code.'}</div>`;
+        }
+    } catch (error) {
+        translateResult.innerHTML = '<div class="error">Failed to translate code. Please try again.</div>';
+        console.error('Translation error:', error);
+    }
+}
+
+// Update dictionary language
+function updateDictionaryLanguage() {
+    searchDictionary();
+}
+
+// Search dictionary
+async function searchDictionary() {
+    const searchTerm = document.getElementById('dictSearch').value.trim();
+    const language = document.getElementById('dictLanguage').value;
+    const dictionaryContent = document.getElementById('dictionaryContent');
+    
+    if (!searchTerm) {
+        dictionaryContent.innerHTML = '<p class="placeholder">Enter a term to search for code templates...</p>';
+        return;
+    }
+    
+    dictionaryContent.innerHTML = '<div class="loading">Searching...</div>';
+    
+    try {
+        const response = await fetch('/api/dictionary', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                term: searchTerm,
+                language: language
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            dictionaryContent.innerHTML = `<pre><code>${data.result}</code></pre>`;
+        } else {
+            dictionaryContent.innerHTML = `<div class="error">${data.result || 'Failed to get dictionary content.'}</div>`;
+        }
+    } catch (error) {
+        dictionaryContent.innerHTML = '<div class="error">Failed to get dictionary content. Please try again.</div>';
+        console.error('Dictionary error:', error);
+    }
+}

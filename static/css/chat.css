@@ -3,6 +3,11 @@
     height: calc(100vh - 80px);
     margin-top: 80px;
     background: var(--card-bg);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    margin: 100px auto 0;
+    max-width: 1200px;
+    padding: 1rem;
 }
 
 .new-chat-btn {
@@ -26,6 +31,11 @@
 .chat-layout {
     display: flex;
     height: 100%;
+    background: var(--bg-color);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    border-radius: 15px;
+    margin: 0 1rem 1rem 0;
 }
 
 .chat-sidebar {
@@ -33,7 +43,9 @@
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    background: var(--bg-color);
+    background: var(--card-bg);
+    border-radius: 15px 0 0 15px;
+    margin: 1rem 0 1rem 1rem;
 }
 
 .chat-search {
@@ -159,6 +171,7 @@
     display: flex;
     flex-direction: column;
     background: var(--card-bg);
+    border-left: 1px solid var(--border-color);
 }
 
 .chat-header-info {
@@ -168,6 +181,8 @@
     padding: 1.25rem 2rem;
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-color);
+    border-radius: 15px 15px 0 0;
+    margin: 1rem 1rem 0 1rem;
 }
 
 .current-chat-avatar {
@@ -225,6 +240,9 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    background: var(--bg-color);
+    border-radius: 10px;
+    margin: 1rem;
 }
 
 .message {
@@ -307,6 +325,8 @@
     padding: 1.5rem 2rem;
     border-top: 1px solid var(--border-color);
     background: var(--bg-color);
+    border-radius: 0 0 15px 15px;
+    margin: 0 1rem 1rem 1rem;
 }
 
 .attach-btn,

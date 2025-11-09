@@ -20,6 +20,14 @@
         </div>
         
         <div class="nav-right">
+            <a href="/notifications" class="notification-icon" title="Notifications">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+            </a>
+            
             <div class="theme-toggle" onclick="toggleTheme()" title="Theme">
                 <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -66,7 +74,7 @@
             if (data.user_id === '{{ user.id }}') {
                 // Add notification to the list
                 const notificationsList = document.getElementById('notificationsList');
-                const item = createNotificationItem(data.notification);
+                const item = createNotificationItem(data);
                 
                 // Add to the top of the list
                 if (notificationsList.firstChild) {
@@ -80,6 +88,24 @@
                 
                 // Show notification alert
                 showNotification('You have a new notification!', 'info');
+                
+                // Also show a more prominent alert
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'notification-alert';
+                alertDiv.innerHTML = `
+                    <div class="notification-alert-content">
+                        <strong>New Notification:</strong> ${data.message}
+                        <button onclick="this.parentElement.parentElement.remove()">×</button>
+                    </div>
+                `;
+                document.body.appendChild(alertDiv);
+                
+                // Auto-remove after 5 seconds
+                setTimeout(() => {
+                    if (alertDiv.parentElement) {
+                        alertDiv.remove();
+                    }
+                }, 5000);
             }
         });
         
@@ -118,8 +144,14 @@
         async function loadNotifications() {
             try {
                 const response = await fetch('/api/notifications');
-                const notifications = await response.json();
+                const result = await response.json();
                 
+                // Check if the response was successful
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to fetch notifications');
+                }
+                
+                const notifications = result.notifications || [];
                 const notificationsList = document.getElementById('notificationsList');
                 notificationsList.innerHTML = '';
                 
@@ -207,20 +239,25 @@
 
         function createNotificationItem(notif) {
             const item = document.createElement('div');
-            item.className = `notification-item ${notif.read ? '' : 'unread'}`;
+            item.className = `notification-item ${notif.read_status ? '' : 'unread'}`;
             item.dataset.notificationId = notif.id;
             
             // Store notification data for later use
             item.dataset.notificationData = JSON.stringify(notif);
             
+            // Store post ID if available
+            if (notif.post_id) {
+                item.dataset.postId = notif.post_id;
+            }
+            
             // Profile image and name on the left
             const leftContent = document.createElement('div');
             leftContent.className = 'notification-left';
             
-            if (notif.from_user && notif.from_user.image) {
+            if (notif.from_user && notif.from_user.profile_image_url) {
                 const avatar = document.createElement('img');
-                avatar.src = notif.from_user.image;
-                avatar.alt = notif.from_user.name;
+                avatar.src = notif.from_user.profile_image_url;
+                avatar.alt = notif.from_user.username;
                 avatar.className = 'notification-avatar';
                 leftContent.appendChild(avatar);
             }
@@ -236,17 +273,18 @@
                 // Create a link for the user name
                 const userLink = document.createElement('a');
                 userLink.href = `/user/${notif.from_user.id}`;
-                userLink.textContent = notif.from_user.name;
+                userLink.textContent = `${notif.from_user.first_name} ${notif.from_user.last_name}`;
                 userLink.style.color = 'var(--primary-color)';
                 userLink.style.textDecoration = 'none';
                 userLink.style.fontWeight = 'bold';
                 
                 // Replace the user name in the content with the link
-                const contentText = notif.content;
-                const userNameIndex = contentText.indexOf(notif.from_user.name);
+                const contentText = notif.message;
+                const userName = `${notif.from_user.first_name} ${notif.from_user.last_name}`;
+                const userNameIndex = contentText.indexOf(userName);
                 if (userNameIndex !== -1) {
                     const beforeUserName = contentText.substring(0, userNameIndex);
-                    const afterUserName = contentText.substring(userNameIndex + notif.from_user.name.length);
+                    const afterUserName = contentText.substring(userNameIndex + userName.length);
                     
                     textDiv.appendChild(document.createTextNode(beforeUserName));
                     textDiv.appendChild(userLink);
@@ -256,7 +294,7 @@
                     textDiv.textContent = contentText;
                 }
             } else {
-                textDiv.textContent = notif.content;
+                textDiv.textContent = notif.message;
             }
             
             contentDiv.appendChild(textDiv);
@@ -273,9 +311,9 @@
             actionsDiv.className = 'notification-actions';
             
             // Handle different notification types
-            if (notif.type === 'friend_request') {
+            if (notif.type === 'follow_request') {
                 // Check if this is a follow back request by looking at the content
-                if (notif.content.includes('started following you')) {
+                if (notif.message.includes('started following you')) {
                     // Show "View" button instead of "Follow Back" when user has accepted the request
                     const viewBtn = document.createElement('button');
                     viewBtn.className = 'view-btn';
@@ -286,9 +324,9 @@
                         }
                     };
                     actionsDiv.appendChild(viewBtn);
-                } else if (notif.content.includes('You and')) {
+                } else if (notif.message.includes('You and')) {
                     // No buttons needed for mutual follow
-                } else if (notif.content.includes('requested to follow you')) {
+                } else if (notif.message.includes('requested to follow you')) {
                     // Show "Confirm" and "Delete" buttons for follow back requests
                     const confirmBtn = document.createElement('button');
                     confirmBtn.className = 'confirm-btn';
@@ -301,7 +339,7 @@
                     deleteBtn.textContent = 'Delete';
                     deleteBtn.onclick = () => respondToNotification(notif.id, 'deny');
                     actionsDiv.appendChild(deleteBtn);
-                } else if (notif.content.includes('You requested to follow')) {
+                } else if (notif.message.includes('You requested to follow')) {
                     // Show "Requested" text when user has sent a follow back request
                     const requestedText = document.createElement('span');
                     requestedText.textContent = 'Requested';
@@ -340,15 +378,8 @@
                 viewBtn.textContent = 'View';
                 viewBtn.onclick = () => viewNotification(notif);
                 actionsDiv.appendChild(viewBtn);
-            } else if (notif.type === 'comment') {
+            } else if (notif.type === 'comment' || notif.type === 'comment_reply') {
                 // For comments, show a view button that opens the post
-                const viewBtn = document.createElement('button');
-                viewBtn.className = 'view-btn';
-                viewBtn.textContent = 'View';
-                viewBtn.onclick = () => viewNotification(notif);
-                actionsDiv.appendChild(viewBtn);
-            } else if (notif.type === 'share') {
-                // For shares, show a view button that opens the post
                 const viewBtn = document.createElement('button');
                 viewBtn.className = 'view-btn';
                 viewBtn.textContent = 'View';
@@ -399,7 +430,7 @@
         async function markAllRead() {
             try {
                 // Call API to mark all notifications as read
-                await fetch('/api/notifications/mark-all-read', {
+                await fetch('/api/notifications/read-all', {
                     method: 'POST'
                 });
                 
@@ -421,7 +452,7 @@
         async function markAllReadSilently() {
             try {
                 // Call API to mark all notifications as read
-                await fetch('/api/notifications/mark-all-read', {
+                await fetch('/api/notifications/read-all', {
                     method: 'POST'
                 });
                 
@@ -439,17 +470,39 @@
 
         async function respondToNotification(notifId, action) {
             try {
-                const response = await fetch(`/api/notifications/${notifId}/respond`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({action})
-                });
+                // Get the notification data to determine what type of action to take
+                const item = document.querySelector(`[data-notification-id="${notifId}"]`);
+                if (!item) {
+                    showNotification('Notification not found', 'error');
+                    return;
+                }
+                
+                const notifData = JSON.parse(item.dataset.notificationData || '{}');
+                
+                let response;
+                if (action === 'accept') {
+                    // For follow requests, call the accept follow endpoint
+                    response = await fetch('/api/follow/accept', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({request_id: notifId})
+                    });
+                } else if (action === 'deny') {
+                    // For follow requests, call the reject follow endpoint
+                    response = await fetch('/api/follow/reject', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({request_id: notifId})
+                    });
+                } else {
+                    showNotification('Invalid action', 'error');
+                    return;
+                }
                 
                 const result = await response.json();
                 
                 if (result.success) {
                     // Update the notification item in the list based on action
-                    const item = document.querySelector(`[data-notification-id="${notifId}"]`);
                     if (item) {
                         if (action === 'accept') {
                             // Change buttons to "View"
@@ -480,22 +533,6 @@
                             }
                             
                             showNotification('Friend request accepted!', 'success');
-                        } else if (action === 'follow_back') {
-                            // Show "Requested" text instead of removing buttons
-                            const actionsDiv = item.querySelector('.notification-actions');
-                            actionsDiv.innerHTML = '';
-                            
-                            const requestedText = document.createElement('span');
-                            requestedText.textContent = 'Requested';
-                            requestedText.style.fontWeight = 'bold';
-                            requestedText.style.color = 'var(--accent-color)';
-                            actionsDiv.appendChild(requestedText);
-                            
-                            // Update notification text
-                            const textDiv = item.querySelector('.notification-text');
-                            textDiv.textContent = 'Follow request sent';
-                            
-                            showNotification('Follow request sent!', 'success');
                         } else if (action === 'deny') {
                             // Remove the notification item from the list
                             item.style.animation = 'slideOut 0.3s ease';
@@ -504,32 +541,10 @@
                         }
                     }
                     
-                    // Update user stats if provided
-                    if (result.current_user_stats) {
-                        // Update current user's follower/following counts
-                        const followerElements = document.querySelectorAll('.stat-number');
-                        if (followerElements.length >= 2) {
-                            followerElements[1].textContent = result.current_user_stats.follower_count;
-                            followerElements[2].textContent = result.current_user_stats.following_count;
-                        }
-                        
-                        // Update profile page stats if we're on a profile page
-                        const profileFollowerCount = document.querySelector('.profile-stats .stat:nth-child(2) .stat-number');
-                        const profileFollowingCount = document.querySelector('.profile-stats .stat:nth-child(3) .stat-number');
-                        
-                        if (profileFollowerCount) {
-                            profileFollowerCount.textContent = result.current_user_stats.follower_count;
-                        }
-                        
-                        if (profileFollowingCount) {
-                            profileFollowingCount.textContent = result.current_user_stats.following_count;
-                        }
-                    }
-                    
                     // Update notification badge
                     await updateNotificationBadge();
                 } else {
-                    showNotification('Failed to respond to notification', 'error');
+                    showNotification(result.error || 'Failed to respond to notification', 'error');
                 }
             } catch (error) {
                 console.error('Error responding to notification:', error);
@@ -549,31 +564,27 @@
             
             // Navigate based on notification type
             if (notif.type === 'like') {
-                // Extract post information from content and navigate to post
-                // For now, we'll show an alert and then navigate to a default post page
-                alert('Navigating to post...');
-                // In a real implementation, you would extract the post ID and navigate to it
-                // window.location.href = `/post/${postId}`;
-            } else if (notif.type === 'comment') {
-                // Extract post information from content and navigate to post
-                alert('Navigating to post...');
-                // window.location.href = `/post/${postId}`;
-            } else if (notif.type === 'share') {
-                // Navigate to the shared post
-                alert('Navigating to shared post...');
-                // window.location.href = `/post/${postId}`;
+                // For likes, navigate to the post
+                if (notif.post_id) {
+                    window.location.href = `/post/${notif.post_id}`;
+                } else {
+                    alert('Navigating to the post...');
+                }
+            } else if (notif.type === 'comment' || notif.type === 'comment_reply') {
+                // For comments, navigate to the post
+                if (notif.post_id) {
+                    window.location.href = `/post/${notif.post_id}`;
+                } else {
+                    alert('Navigating to the post with comment...');
+                }
             } else if (notif.type === 'system_update') {
                 // Show system update information
-                alert('New version released - Explore updated features!');
-            } else if (notif.type === 'friend_request' || notif.type === 'friend_request_accepted' || notif.type === 'follow_back') {
+                alert('New system update: ' + notif.message);
+            } else if (notif.type === 'follow_request' || notif.type === 'accepted' || notif.type === 'follow_back') {
                 // Navigate to the user profile
                 if (notif.from_user && notif.from_user.id) {
                     window.location.href = `/user/${notif.from_user.id}`;
                 }
-            } else if (notif.type === 'mention') {
-                // For mentions, navigate to the post where the mention occurred
-                alert('Navigating to post with your mention...');
-                // window.location.href = `/post/${postId}`;
             }
         }
 
@@ -656,5 +667,60 @@
             loadNotifications();
         });
     </script>
+    
+    <style>
+        .notification-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #2196f3, #1976d2);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            max-width: 300px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .notification-alert-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .notification-alert button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .no-notifications {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+    </style>
 </body>
 </html>

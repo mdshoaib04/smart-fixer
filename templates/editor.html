@@ -62,25 +62,26 @@
         </div>
         
         <div class="top-right">
-            <div class="chat-icon tooltip" data-tooltip="Chat" onclick="window.location.href='/chat'">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="chat-icon tooltip" data-tooltip="Chat" onclick="openChat()" style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin: 0 2px; position: relative;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                 </svg>
+                <span class="chat-badge" id="chatBadge" style="position: absolute; top: -5px; right: -5px; background-color: #ff4757; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; display: none;">0</span>
             </div>
             
-            <div class="notification-icon tooltip" data-tooltip="Notifications" onclick="openNotifications()">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            <div class="notification-icon tooltip" data-tooltip="Notifications" onclick="openNotifications()" style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; position: relative; margin: 0 2px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
-                <span class="notification-badge" id="notificationBadge">0</span>
+                <span class="notification-badge" id="notificationBadge" style="position: absolute; top: -5px; right: -5px; background-color: #ff4757; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold;">0</span>
             </div>
             
-            <div class="theme-toggle tooltip" data-tooltip="Theme" onclick="toggleTheme()">
-                <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <div class="theme-toggle tooltip" data-tooltip="Theme" onclick="toggleTheme()" style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin: 0 2px;">
+                <svg class="theme-icon moon" width="18" height="18" viewBox="0 0 24 24" fill="white">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                 </svg>
-                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                <svg class="theme-icon sun" width="18" height="18" viewBox="0 0 24 24" fill="white" style="display: none;">
                     <circle cx="12" cy="12" r="5"/>
                     <line x1="12" y1="1" x2="12" y2="3"/>
                     <line x1="12" y1="21" x2="12" y2="23"/>
@@ -93,8 +94,8 @@
                 </svg>
             </div>
             
-            <div class="profile-logo tooltip" data-tooltip="Personal Details" onclick="toggleProfileDropdown()">
-                <span id="userInitials">{{ user.first_name[0] if user.first_name else 'U' }}{{ user.last_name[0] if user.last_name else '' }}</span>
+            <div class="profile-logo tooltip" data-tooltip="Personal Details" onclick="toggleProfileDropdown()" style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin: 0 2px;">
+                <span id="userInitials" style="color: white; font-weight: bold; font-size: 14px;">{{ user.first_name[0] if user.first_name else 'U' }}{{ user.last_name[0] if user.last_name else '' }}</span>
                 
                 <div class="profile-dropdown" id="profileDropdown">
                     <a href="#" onclick="openProfile(); return false;">👤 My Profile</a>
@@ -164,9 +165,19 @@
         
         <div class="right-panel">
             <div class="output-container">
-                <div class="output-header">AI Output</div>
+                <div class="output-header">Code Output</div>
                 <div class="output-content" id="outputContent">
-                    <p class="placeholder">Click Review, Explain, or Compile to see AI analysis...</p>
+                    <p class="placeholder">Click Compile to execute your code...</p>
+                </div>
+                <div class="input-container" id="inputContainer" style="display: none; padding: 10px; border-top: 1px solid var(--border-color); background-color: var(--input-bg-color);">
+                    <div style="display: flex; align-items: center; width: 100%;">
+                        <span style="margin-right: 10px; color: var(--text-color);">▶</span>
+                        <input type="text" id="userInput" placeholder="Enter input for your program..." style="flex: 1; padding: 8px; margin-right: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--bg-color); color: var(--text-color);" onkeypress="if(event.key==='Enter')handleInput()">
+                        <button onclick="handleInput()" style="padding: 8px 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Send</button>
+                    </div>
+                    <div style="margin-top: 5px; font-size: 0.8em; color: var(--text-secondary-color);">
+                        Program is waiting for input. Press Enter or click Send to submit.
+                    </div>
                 </div>
                 <div class="output-actions" id="outputActions" style="display: none;">
                     <button class="output-action-btn" onclick="copyOutput()" title="Copy Output">
@@ -332,6 +343,9 @@
         // Initialize Socket.IO for real-time chat functionality
         const socket = io();
         
+        // Join user's personal room for notifications
+        socket.emit('join', {room: `user_{{ user.id }}`});
+        
         // Socket event listeners
         socket.on('receive_message', displayMessage);
         socket.on('user_joined', (data) => {
@@ -339,6 +353,19 @@
         });
         socket.on('user_left', (data) => {
             console.log(data.user + ' left the chat');
+        });
+        
+        // Listen for new notifications
+        socket.on('new_notification', function(data) {
+            if (data.user_id === '{{ user.id }}') {
+                // Update notification badge
+                const badge = document.getElementById('notificationBadge');
+                if (badge) {
+                    const currentCount = parseInt(badge.textContent) || 0;
+                    badge.textContent = currentCount + 1;
+                    badge.style.display = 'flex';
+                }
+            }
         });
     </script>
 </body>

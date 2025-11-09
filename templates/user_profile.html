@@ -56,10 +56,26 @@
                 <div class="profile-details">
                     <h1>{{ target_user.first_name }} {{ target_user.last_name }}</h1>
                     {% if not is_current_user %}
-                        {% if not is_following %}
-                        <button class="follow-btn" id="followBtn" onclick="toggleFollow()">
-                            Follow
-                        </button>
+                        {% if is_following %}
+                            {% if is_following_me %}
+                                <button class="follow-btn following" id="followBtn" disabled>
+                                    Both Follow Each Other
+                                </button>
+                            {% else %}
+                                <button class="follow-btn following" id="followBtn" onclick="toggleFollow()">
+                                    Following
+                                </button>
+                            {% endif %}
+                        {% else %}
+                            {% if is_following_me %}
+                                <button class="follow-btn" id="followBtn" onclick="followBack()">
+                                    Follow Back
+                                </button>
+                            {% else %}
+                                <button class="follow-btn" id="followBtn" onclick="toggleFollow()">
+                                    Follow
+                                </button>
+                            {% endif %}
                         {% endif %}
                     {% endif %}
                     <div class="profile-stats">
@@ -219,10 +235,61 @@
         </div>
     </div>
 
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
         // Pass current user ID and target user ID to JavaScript
         const currentUserId = "{{ user.id }}";
         const targetUserId = "{{ target_user.id }}";
+        
+        // Initialize SocketIO
+        const socket = io();
+        
+        // Join user's personal room
+        socket.emit('join', {room: `user_${currentUserId}`});
+        
+        // Listen for new notifications
+        socket.on('new_notification', function(data) {
+            if (data.user_id === currentUserId) {
+                // Show notification alert
+                showNotification('You have a new notification! Check the notifications tab.', 'info');
+                
+                // Update notification badge
+                updateNotificationBadge();
+                
+                // Also show a more prominent alert
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'notification-alert';
+                alertDiv.innerHTML = `
+                    <div class="notification-alert-content">
+                        <strong>New Notification:</strong> ${data.message}
+                        <button onclick="this.parentElement.parentElement.remove()">×</button>
+                    </div>
+                `;
+                document.body.appendChild(alertDiv);
+                
+                // Auto-remove after 5 seconds
+                setTimeout(() => {
+                    if (alertDiv.parentElement) {
+                        alertDiv.remove();
+                    }
+                }, 5000);
+            }
+        });
+        
+        // Update notification badge function
+        async function updateNotificationBadge() {
+            try {
+                const response = await fetch('/api/notifications/unread-count');
+                const data = await response.json();
+                const badge = document.getElementById('notificationBadge');
+                if (badge) {
+                    badge.textContent = data.count;
+                    badge.style.display = data.count > 0 ? 'flex' : 'none';
+                }
+            } catch (error) {
+                console.error('Failed to update notification badge:', error);
+            }
+        }
         
         // Navigation history management
         let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
@@ -285,40 +352,61 @@
             if (isCurrentUser) return;
             
             try {
-                const response = await fetch(`/api/follow-user`, {
+                const response = await fetch(`/api/follow/request`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ user_id: targetUserId })
+                    body: JSON.stringify({ to_user_id: targetUserId })
                 });
                 
                 if (response.ok) {
                     const data = await response.json();
                     const followBtn = document.getElementById('followBtn');
                     
-                    if (data.action === 'requested') {
+                    if (data.success) {
+                        // Update button to show "Requested"
                         followBtn.textContent = 'Requested';
                         followBtn.classList.add('requested');
-                    } else if (data.action === 'unfollowed') {
-                        followBtn.textContent = 'Follow';
-                        followBtn.classList.remove('following');
-                        // Update follower count
-                        document.getElementById('followerCount').textContent = data.follower_count;
-                    } else if (data.action === 'cancelled') {
-                        followBtn.textContent = 'Follow';
-                        followBtn.classList.remove('requested');
-                    } else if (data.action === 'accepted') {
-                        // Remove the follow button when following
-                        if (followBtn) {
-                            followBtn.remove();
-                        }
-                        // Update follower count
-                        document.getElementById('followerCount').textContent = data.follower_count;
+                        showNotification(data.message, 'success');
+                    } else {
+                        showNotification(data.error, 'error');
                     }
                 }
             } catch (error) {
                 console.error('Error following user:', error);
+                showNotification('Error following user', 'error');
+            }
+        }
+        
+        async function followBack() {
+            if (isCurrentUser) return;
+            
+            try {
+                const response = await fetch(`/api/follow/request`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ to_user_id: targetUserId })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const followBtn = document.getElementById('followBtn');
+                    
+                    if (data.success) {
+                        // Update button to show "Requested"
+                        followBtn.textContent = 'Requested';
+                        followBtn.classList.add('requested');
+                        showNotification(data.message, 'success');
+                    } else {
+                        showNotification(data.error, 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error following user back:', error);
+                showNotification('Error following user back', 'error');
             }
         }
 
@@ -569,6 +657,9 @@
             }
             updateNavigationHistory();
             
+            // Update notification badge on page load
+            updateNotificationBadge();
+            
             // Set up follow button if not current user and not already following
             const isCurrentUser = "{{ 'true' if is_current_user else 'false' }}";
             const isFollowing = "{{ 'true' if is_following else 'false' }}";
@@ -637,5 +728,54 @@
         document.head.appendChild(presenceStyle);
 
     </script>
+    
+    <style>
+        .notification-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #2196f3, #1976d2);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            max-width: 300px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .notification-alert-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .notification-alert button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
 </body>
 </html>
