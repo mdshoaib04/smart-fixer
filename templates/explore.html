@@ -512,37 +512,31 @@
                 button.textContent = '...';
                 button.disabled = true;
                 
-                const response = await fetch('/api/follow-user', {
+                // Use the correct API endpoint for follow requests
+                const response = await fetch('/api/follow/request', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        user_id: userId
+                        to_user_id: userId
                     })
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Update button based on action
-                    if (data.action === 'requested') {
-                        button.classList.add('following');
-                        button.textContent = 'Following';
-                    } else if (data.action === 'unfollowed') {
-                        button.classList.remove('following');
-                        button.textContent = 'Follow';
-                    } else if (data.action === 'cancelled') {
-                        button.classList.remove('following');
-                        button.textContent = 'Follow';
-                    }
+                    // Update button to show "Requested" since we're using the new follow system
+                    button.classList.add('following');
+                    button.textContent = 'Requested';
+                    showNotification('Follow request sent!', 'success');
                 } else {
-                    alert(data.error || 'Failed to update follow status');
+                    alert(data.error || 'Failed to send follow request');
                     button.textContent = originalText;
                 }
             } catch (error) {
                 console.error('Follow error:', error);
-                alert('Failed to update follow status');
+                alert('Failed to send follow request');
                 button.textContent = originalText;
             } finally {
                 button.disabled = false;

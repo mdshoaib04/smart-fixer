@@ -482,17 +482,21 @@
                 let response;
                 if (action === 'accept') {
                     // For follow requests, call the accept follow endpoint
+                    // Use the follow request ID if available, otherwise fallback to notification ID
+                    const requestId = notifData.follow_request_id || notifId;
                     response = await fetch('/api/follow/accept', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({request_id: notifId})
+                        body: JSON.stringify({request_id: requestId})
                     });
                 } else if (action === 'deny') {
                     // For follow requests, call the reject follow endpoint
+                    // Use the follow request ID if available, otherwise fallback to notification ID
+                    const requestId = notifData.follow_request_id || notifId;
                     response = await fetch('/api/follow/reject', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({request_id: notifId})
+                        body: JSON.stringify({request_id: requestId})
                     });
                 } else {
                     showNotification('Invalid action', 'error');

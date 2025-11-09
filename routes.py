@@ -99,6 +99,13 @@ def register_routes():
         # Check if current user is viewing their own profile
         is_current_user = (current_user.id == user_id)
         
+        # Calculate post count
+        post_count = 0  # In a full implementation, this would query posts
+        
+        # Calculate follower and following counts
+        follower_count = Follower.query.filter_by(user_id=user_id).count()
+        following_count = Follower.query.filter_by(follower_id=user_id).count()
+        
         # For now, pass default values for the other required variables
         # In a full implementation, these would be fetched from the database
         return render_template('user_profile.html', 
@@ -107,9 +114,9 @@ def register_routes():
                              is_following=is_following,
                              is_following_me=is_following_me,  # Whether target user is following current user
                              is_current_user=is_current_user,
-                             post_count=0,
-                             follower_count=0,
-                             following_count=0,
+                             post_count=post_count,
+                             follower_count=follower_count,
+                             following_count=following_count,
                              posts=[])
 
     @app.route('/api/follow-user', methods=['POST'])
@@ -214,20 +221,29 @@ def register_routes():
                     existing_request.status = 'pending'
                     existing_request.updated_at = datetime.now()
                     db.session.commit()
+                    
                     # Create notification for target user
                     notification = Notification()
                     notification.user_id = to_user_id
                     notification.message = f"{current_user.full_name} requested to follow you"
                     notification.type = 'follow_request'
                     notification.from_user_id = current_user.id
+                    notification.follow_request_id = existing_request.id  # Link to follow request
                     db.session.add(notification)
                     db.session.commit()
                     
-                    # Emit notification to target user
+                    # Emit notification to target user with the follow request ID
                     socketio.emit('new_notification', {
                         'user_id': to_user_id,
                         'message': f"{current_user.full_name} requested to follow you",
-                        'type': 'follow_request'
+                        'type': 'follow_request',
+                        'follow_request_id': existing_request.id  # Include the follow request ID
+                    }, room=f'user_{to_user_id}')
+                    
+                    # Emit notification update to update badge
+                    socketio.emit('notification_update', {
+                        'user_id': to_user_id,
+                        'count': Notification.query.filter_by(user_id=to_user_id, read_status=False).count()
                     }, room=f'user_{to_user_id}')
                     
                     return jsonify({'success': True, 'message': 'Follow request sent'})
@@ -238,6 +254,7 @@ def register_routes():
             follow_request.to_user_id = to_user_id
             follow_request.status = 'pending'
             db.session.add(follow_request)
+            db.session.flush()  # Ensure the follow request gets an ID
             
             # Create notification for target user
             notification = Notification()
@@ -245,15 +262,22 @@ def register_routes():
             notification.message = f"{current_user.full_name} requested to follow you"
             notification.type = 'follow_request'
             notification.from_user_id = current_user.id
+            notification.follow_request_id = follow_request.id  # Link to follow request
             db.session.add(notification)
-            
             db.session.commit()
             
-            # Emit notification to target user
+            # Emit notification to target user with the follow request ID
             socketio.emit('new_notification', {
                 'user_id': to_user_id,
                 'message': f"{current_user.full_name} requested to follow you",
-                'type': 'follow_request'
+                'type': 'follow_request',
+                'follow_request_id': follow_request.id  # Include the follow request ID
+            }, room=f'user_{to_user_id}')
+            
+            # Emit notification update to update badge
+            socketio.emit('notification_update', {
+                'user_id': to_user_id,
+                'count': Notification.query.filter_by(user_id=to_user_id, read_status=False).count()
             }, room=f'user_{to_user_id}')
             
             return jsonify({'success': True, 'message': 'Follow request sent'})
@@ -288,11 +312,17 @@ def register_routes():
             follow_request.status = 'accepted'
             follow_request.updated_at = datetime.now()
             
-            # Add to followers table
+            # Add to followers table (current user is followed by the requester)
             follower = Follower()
             follower.user_id = current_user.id  # The user being followed
             follower.follower_id = follow_request.from_user_id  # The user who is following
             db.session.add(follower)
+            
+            # Add reverse relationship (requester is now following current user)
+            reverse_follower = Follower()
+            reverse_follower.user_id = follow_request.from_user_id  # The requester
+            reverse_follower.follower_id = current_user.id  # Current user (who accepted)
+            db.session.add(reverse_follower)
             
             # Create notification for the user who sent the request
             notification = Notification()
@@ -309,6 +339,19 @@ def register_routes():
                 'user_id': follow_request.from_user_id,
                 'message': f"{current_user.full_name} accepted your follow request",
                 'type': 'accepted'
+            }, room=f'user_{follow_request.from_user_id}')
+            
+            # Emit follow update events to both users
+            socketio.emit('follow_update', {
+                'user_id': current_user.id,
+                'follower_count': Follower.query.filter_by(user_id=current_user.id).count(),
+                'following_count': Follower.query.filter_by(follower_id=current_user.id).count()
+            }, room=f'user_{current_user.id}')
+            
+            socketio.emit('follow_update', {
+                'user_id': follow_request.from_user_id,
+                'follower_count': Follower.query.filter_by(user_id=follow_request.from_user_id).count(),
+                'following_count': Follower.query.filter_by(follower_id=follow_request.from_user_id).count()
             }, room=f'user_{follow_request.from_user_id}')
             
             return jsonify({'success': True, 'message': 'Follow request accepted'})
@@ -586,6 +629,19 @@ def register_routes():
             print(f"Error getting followers: {e}")
             return jsonify({'success': False, 'error': 'Failed to get followers'}), 500
 
+    @app.route('/followers/page/<user_id>')
+    @require_login
+    def followers_page(user_id):
+        """Serve the followers page"""
+        # Check if user exists
+        target_user = User.query.get(user_id)
+        if not target_user:
+            return "User not found", 404
+        
+        return render_template('followers.html', 
+                             user=current_user,
+                             target_user=target_user)
+
     @app.route('/following/<user_id>')
     @require_login
     def get_following(user_id):
@@ -625,6 +681,42 @@ def register_routes():
             print(f"Error getting following: {e}")
             return jsonify({'success': False, 'error': 'Failed to get following'}), 500
 
+    @app.route('/following/page/<user_id>')
+    @require_login
+    def following_page(user_id):
+        """Serve the following page"""
+        # Check if user exists
+        target_user = User.query.get(user_id)
+        if not target_user:
+            return "User not found", 404
+        
+        return render_template('following.html', 
+                             user=current_user,
+                             target_user=target_user)
+    
+    @app.route('/api/user/<user_id>/stats')
+    @require_login
+    def get_user_stats(user_id):
+        """API endpoint to get user statistics"""
+        try:
+            # Check if user exists
+            user = User.query.get(user_id)
+            if not user:
+                return jsonify({'success': False, 'error': 'User not found'}), 404
+            
+            # Calculate follower and following counts
+            follower_count = Follower.query.filter_by(user_id=user_id).count()
+            following_count = Follower.query.filter_by(follower_id=user_id).count()
+            
+            return jsonify({
+                'success': True,
+                'follower_count': follower_count,
+                'following_count': following_count
+            })
+        except Exception as e:
+            print(f"Error getting user stats: {e}")
+            return jsonify({'success': False, 'error': 'Failed to get user stats'}), 500
+
     @app.route('/api/notifications')
     @require_login
     def get_notifications():
@@ -643,6 +735,7 @@ def register_routes():
                     'type': notification.type,
                     'read_status': notification.read_status,
                     'created_at': notification.created_at.isoformat(),
+                    'follow_request_id': notification.follow_request_id,  # Include follow request ID if available
                     'from_user': {
                         'id': notification.from_user.id if notification.from_user else None,
                         'username': notification.from_user.username if notification.from_user else None,

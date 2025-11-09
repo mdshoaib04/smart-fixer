@@ -22,7 +22,7 @@
         <div class="nav-right">
             <a href="/notifications" class="notification-icon" title="Notifications">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M18 8A6 6 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                     <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
                 <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
@@ -83,11 +83,11 @@
                             <span class="stat-number" id="postCount">{{ post_count }}</span>
                             <span class="stat-label">Posts</span>
                         </div>
-                        <div class="stat" onclick="window.location.href='/user/{{ target_user.id }}/followers'">
+                        <div class="stat" onclick="window.location.href='/followers/page/{{ target_user.id }}'">
                             <span class="stat-number" id="followerCount">{{ follower_count }}</span>
                             <span class="stat-label">Followers</span>
                         </div>
-                        <div class="stat" onclick="window.location.href='/user/{{ target_user.id }}/following'">
+                        <div class="stat" onclick="window.location.href='/following/page/{{ target_user.id }}'">
                             <span class="stat-number" id="followingCount">{{ following_count }}</span>
                             <span class="stat-label">Following</span>
                         </div>
@@ -237,46 +237,60 @@
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        // Pass current user ID and target user ID to JavaScript
-        const currentUserId = "{{ user.id }}";
-        const targetUserId = "{{ target_user.id }}";
-        
         // Initialize SocketIO
         const socket = io();
         
         // Join user's personal room
-        socket.emit('join', {room: `user_${currentUserId}`});
+        socket.emit('join', {room: `user_{{ user.id }}`});
         
         // Listen for new notifications
         socket.on('new_notification', function(data) {
-            if (data.user_id === currentUserId) {
-                // Show notification alert
-                showNotification('You have a new notification! Check the notifications tab.', 'info');
-                
+            if (data.user_id === '{{ user.id }}') {
                 // Update notification badge
                 updateNotificationBadge();
                 
-                // Also show a more prominent alert
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'notification-alert';
-                alertDiv.innerHTML = `
-                    <div class="notification-alert-content">
-                        <strong>New Notification:</strong> ${data.message}
-                        <button onclick="this.parentElement.parentElement.remove()">×</button>
-                    </div>
-                `;
-                document.body.appendChild(alertDiv);
-                
-                // Auto-remove after 5 seconds
-                setTimeout(() => {
-                    if (alertDiv.parentElement) {
-                        alertDiv.remove();
-                    }
-                }, 5000);
+                // Show notification alert
+                showNotificationAlert(data.message);
             }
         });
         
-        // Update notification badge function
+        // Listen for follow updates
+        socket.on('follow_update', function(data) {
+            // Update follower/following counts if this is the current user's profile
+            if (data.user_id === '{{ target_user.id }}') {
+                updateFollowerCounts();
+            }
+        });
+        
+        // Listen for notification badge updates
+        socket.on('notification_update', function(data) {
+            if (data.user_id === '{{ user.id }}') {
+                updateNotificationBadge();
+            }
+        });
+        
+        // Show notification alert
+        function showNotificationAlert(message) {
+            // Show a more prominent alert
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'notification-alert';
+            alertDiv.innerHTML = `
+                <div class="notification-alert-content">
+                    <strong>New Notification:</strong> ${message}
+                    <button onclick="this.parentElement.parentElement.remove()">×</button>
+                </div>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentElement) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        // Update notification badge
         async function updateNotificationBadge() {
             try {
                 const response = await fetch('/api/notifications/unread-count');
@@ -291,11 +305,23 @@
             }
         }
         
-        // Navigation history management
-        let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
+        // Update follower and following counts
+        async function updateFollowerCounts() {
+            try {
+                const response = await fetch(`/api/user/${encodeURIComponent('{{ target_user.id }}')}/stats`);
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('followerCount').textContent = data.follower_count;
+                    document.getElementById('followingCount').textContent = data.following_count;
+                }
+            } catch (error) {
+                console.error('Failed to update follower counts:', error);
+            }
+        }
         
         function updateNavigationHistory() {
             const currentPath = window.location.pathname;
+            let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
             if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
                 navigationHistory.push(currentPath);
                 if (navigationHistory.length > 10) {
@@ -306,14 +332,14 @@
         }
         
         function goBack() {
-            // Go back to the previous page
+            // Go back to the previous page or default to posts
+            let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
             if (navigationHistory.length > 1) {
-                navigationHistory.pop();
-                const previousPage = navigationHistory.pop();
+                navigationHistory.pop(); // Remove current page
                 sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
-                window.location.href = previousPage || '/editor';
+                window.location.href = navigationHistory[navigationHistory.length - 1];
             } else {
-                window.location.href = '/editor';
+                window.location.href = '/posts';
             }
         }
         
@@ -332,6 +358,18 @@
                 document.querySelector('.sun').style.display = 'none';
             }
         }
+        
+        // Load theme and update notification badge on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            }
+            updateNavigationHistory();
+            updateNotificationBadge();
+        });
 
         function showProfileTab(tabName) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -365,9 +403,10 @@
                     const followBtn = document.getElementById('followBtn');
                     
                     if (data.success) {
-                        // Update button to show "Requested"
-                        followBtn.textContent = 'Requested';
-                        followBtn.classList.add('requested');
+                        // Update button to show "Following" instead of "Requested"
+                        followBtn.textContent = 'Following';
+                        followBtn.classList.add('following');
+                        followBtn.classList.remove('requested');
                         showNotification(data.message, 'success');
                     } else {
                         showNotification(data.error, 'error');
@@ -396,9 +435,10 @@
                     const followBtn = document.getElementById('followBtn');
                     
                     if (data.success) {
-                        // Update button to show "Requested"
-                        followBtn.textContent = 'Requested';
-                        followBtn.classList.add('requested');
+                        // Update button to show "Following" instead of "Requested"
+                        followBtn.textContent = 'Following';
+                        followBtn.classList.add('following');
+                        followBtn.classList.remove('requested');
                         showNotification(data.message, 'success');
                     } else {
                         showNotification(data.error, 'error');

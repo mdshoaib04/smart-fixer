@@ -246,15 +246,64 @@
         </div>
     </div>
 
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        // Pass current user ID to JavaScript
-        const currentUserId = "{{ user.id }}";
+        // Initialize SocketIO
+        const socket = io();
         
-        // Navigation history management
-        let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
+        // Join user's personal room
+        socket.emit('join', {room: `user_{{ user.id }}`});
+        
+        // Listen for new notifications
+        socket.on('new_notification', function(data) {
+            if (data.user_id === '{{ user.id }}') {
+                // Update notification badge
+                updateNotificationBadge();
+                
+                // Show notification alert
+                showNotificationAlert(data.message);
+            }
+        });
+        
+        // Show notification alert
+        function showNotificationAlert(message) {
+            // Show a more prominent alert
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'notification-alert';
+            alertDiv.innerHTML = `
+                <div class="notification-alert-content">
+                    <strong>New Notification:</strong> ${message}
+                    <button onclick="this.parentElement.parentElement.remove()">×</button>
+                </div>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentElement) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        // Update notification badge
+        async function updateNotificationBadge() {
+            try {
+                const response = await fetch('/api/notifications/unread-count');
+                const data = await response.json();
+                const badge = document.getElementById('notificationBadge');
+                if (badge) {
+                    badge.textContent = data.count;
+                    badge.style.display = data.count > 0 ? 'flex' : 'none';
+                }
+            } catch (error) {
+                console.error('Failed to update notification badge:', error);
+            }
+        }
         
         function updateNavigationHistory() {
             const currentPath = window.location.pathname;
+            let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
             if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
                 navigationHistory.push(currentPath);
                 if (navigationHistory.length > 10) {
@@ -265,10 +314,17 @@
         }
         
         function goBack() {
-            // Go back to the editor page
-            window.location.href = '/editor';
+            // Go back to the previous page or default to editor
+            let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
+            if (navigationHistory.length > 1) {
+                navigationHistory.pop(); // Remove current page
+                sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
+                window.location.href = navigationHistory[navigationHistory.length - 1];
+            } else {
+                window.location.href = '/editor';
+            }
         }
-
+        
         function toggleTheme() {
             const currentTheme = document.body.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -284,7 +340,19 @@
                 document.querySelector('.sun').style.display = 'none';
             }
         }
-
+        
+        // Load theme and update notification badge on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const theme = localStorage.getItem('theme') || 'light';
+            if (theme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+                document.querySelector('.moon').style.display = 'none';
+                document.querySelector('.sun').style.display = 'block';
+            }
+            updateNavigationHistory();
+            updateNotificationBadge();
+        });
+        
         function showProfileTab(tabName) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));

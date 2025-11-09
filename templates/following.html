@@ -91,7 +91,7 @@
 
         async function loadFollowing() {
             try {
-                const response = await fetch(`/api/user/${targetUserId}/following`);
+                const response = await fetch(`/following/${targetUserId}`);
                 if (response.ok) {
                     const data = await response.json();
                     const followingList = document.getElementById('followingList');
@@ -114,8 +114,16 @@
                     } else {
                         followingList.innerHTML = '<p class="no-following">Not following anyone yet.</p>';
                     }
+                } else {
+                    // Handle HTTP errors
+                    const followingList = document.getElementById('followingList');
+                    followingList.innerHTML = '<p class="no-following">Failed to load following. Please try again later.</p>';
+                    console.error('HTTP Error:', response.status, response.statusText);
                 }
             } catch (error) {
+                // Handle network errors
+                const followingList = document.getElementById('followingList');
+                followingList.innerHTML = '<p class="no-following">Failed to load following. Please check your connection and try again.</p>';
                 console.error('Error loading following:', error);
             }
         }
@@ -127,34 +135,31 @@
                 button.textContent = '...';
                 button.disabled = true;
                 
-                const response = await fetch('/api/follow-user', {
+                // Use the correct API endpoint for follow requests
+                const response = await fetch('/api/follow/request', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        user_id: userId
+                        to_user_id: userId
                     })
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Update button based on action
-                    if (data.action === 'unfollowed') {
-                        button.textContent = 'Follow';
-                        button.classList.remove('following');
-                    } else {
-                        button.textContent = 'Following';
-                        button.classList.add('following');
-                    }
+                    // Update button to show "Requested" since we're using the new follow system
+                    button.classList.add('following');
+                    button.textContent = 'Requested';
+                    showNotification('Follow request sent!', 'success');
                 } else {
-                    alert(data.error || 'Failed to update follow status');
+                    alert(data.error || 'Failed to send follow request');
                     button.textContent = originalText;
                 }
             } catch (error) {
                 console.error('Follow error:', error);
-                alert('Failed to update follow status');
+                alert('Failed to send follow request');
                 button.textContent = originalText;
             } finally {
                 button.disabled = false;

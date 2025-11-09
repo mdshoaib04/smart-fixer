@@ -180,10 +180,12 @@ class Notification(db.Model):
     message = db.Column(db.Text, nullable=False)
     type = db.Column(db.String, nullable=False)  # follow_request, accepted, follow_back, like, comment, system_update
     from_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
+    follow_request_id = db.Column(db.Integer, db.ForeignKey('follow_requests.id'), nullable=True)  # Link to follow request
     read_status = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
     
     from_user = db.relationship('User', foreign_keys=[from_user_id])
+    follow_request = db.relationship('FollowRequest', foreign_keys=[follow_request_id])
 
 class CodeHistory(db.Model):
     __tablename__ = 'code_history'
