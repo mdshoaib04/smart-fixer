@@ -151,6 +151,8 @@ class Message(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=True)
     content = db.Column(db.Text, nullable=False)
     code_snippet = db.Column(db.Text, nullable=True)
+    file_attachment = db.Column(db.String(255), nullable=True)  # Path to attached file
+    file_type = db.Column(db.String(50), nullable=True)  # Type of file (image, video, pdf, etc.)
     created_at = db.Column(db.DateTime, default=datetime.now)
     
     receiver = db.relationship('User', foreign_keys=[receiver_id], backref='received_messages')
