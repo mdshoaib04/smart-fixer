@@ -2,7 +2,7 @@ from flask import render_template, request, jsonify, redirect, url_for
 from flask_login import current_user, login_user, logout_user
 from flask_socketio import emit, join_room
 from database import db
-from models import User, Friendship, FollowRequest, Follower, Notification
+from models import User, Friendship, FollowRequest, Follower, Notification, Message
 from datetime import datetime
 from functools import wraps
 
@@ -562,19 +562,24 @@ def register_routes():
             db.session.add(message)
             db.session.commit()
             
-            # Emit message to receiver's room
-            socketio.emit('receive_message', {
+            # Prepare message data for Socket.IO
+            message_data = {
                 'id': message.id,
                 'sender_id': current_user.id,
                 'receiver_id': receiver_id,
-                'message': content,
+                'content': content,
+                'message': content,  # Keep both for compatibility
                 'code_snippet': code_snippet,
                 'file_attachment': file_attachment,
                 'file_type': file_type,
                 'timestamp': message.created_at.isoformat(),
                 'sender_name': current_user.full_name,
                 'sender_image': current_user.profile_image_url
-            }, room=f'chat_{receiver_id}')
+            }
+            
+            # Emit message to BOTH sender and receiver's chat rooms for instant display
+            socketio.emit('receive_message', message_data, room=f'chat_{receiver_id}')
+            socketio.emit('receive_message', message_data, room=f'chat_{current_user.id}')
             
             return jsonify({'success': True, 'message_id': message.id})
         except Exception as e:

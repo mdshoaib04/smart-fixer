@@ -741,16 +741,43 @@
 
         function displayMessages(messages) {
             const chatMessages = document.getElementById('chatMessages');
-            chatMessages.innerHTML = messages.map(msg => `
-                <div class="message ${msg.sender_id === '{{ user.id }}' ? 'sent' : 'received'}">
-                    ${msg.sender_id !== '{{ user.id }}' ? `<img src="${msg.sender_image || 'https://via.placeholder.com/32'}" alt="Profile" class="message-avatar">` : ''}
-                    <div class="message-content">
-                        <div class="message-text">${msg.content}</div>
-                        ${msg.code_snippet ? `<div class="message-text code-message"><pre><code>${escapeHtml(msg.code_snippet)}</code></pre></div>` : ''}
-                        <div class="message-time">${formatTime(msg.created_at)}</div>
+            chatMessages.innerHTML = messages.map(msg => {
+                let messageContent = '';
+                
+                // Handle file attachments
+                if (msg.file_attachment) {
+                    if (msg.file_type === 'image') {
+                        messageContent = `<img src="${msg.file_attachment}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;">`;
+                    } else if (msg.file_type === 'video') {
+                        messageContent = `<video controls style="max-width: 300px; max-height: 300px; border-radius: 8px;">
+                            <source src="${msg.file_attachment}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>`;
+                    } else if (msg.file_type === 'pdf') {
+                        messageContent = `<a href="${msg.file_attachment}" target="_blank" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">
+                            📄 PDF Document
+                        </a>`;
+                    } else {
+                        messageContent = `<a href="${msg.file_attachment}" target="_blank" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">
+                            📎 Download File
+                        </a>`;
+                    }
+                } else if (msg.code_snippet) {
+                    messageContent = `<div class="message-text code-message"><pre><code>${escapeHtml(msg.code_snippet)}</code></pre></div>`;
+                } else {
+                    messageContent = msg.content || '';
+                }
+                
+                return `
+                    <div class="message ${msg.sender_id === '{{ user.id }}' ? 'sent' : 'received'}">
+                        ${msg.sender_id !== '{{ user.id }}' ? `<img src="${msg.sender_image || 'https://via.placeholder.com/32'}" alt="Profile" class="message-avatar">` : ''}
+                        <div class="message-content">
+                            <div class="message-text">${messageContent}</div>
+                            <div class="message-time">${formatTime(msg.created_at)}</div>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
@@ -1084,6 +1111,9 @@
             
             // Join user's personal room for notifications
             socket.emit('join', {room: `user_{{ user.id }}`});
+            
+            // Join user's own chat room to receive sent messages in real-time
+            socket.emit('join', {room: `chat_{{ user.id }}`});
             
             // Send user activity event to update presence
             socket.emit('user_activity', {});

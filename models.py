@@ -149,7 +149,7 @@ class Message(db.Model):
     sender_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
     receiver_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
     group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=True)
-    content = db.Column(db.Text, nullable=False)
+    content = db.Column(db.Text, nullable=True)  # Allow empty content for file/code-only messages
     code_snippet = db.Column(db.Text, nullable=True)
     file_attachment = db.Column(db.String(255), nullable=True)  # Path to attached file
     file_type = db.Column(db.String(50), nullable=True)  # Type of file (image, video, pdf, etc.)

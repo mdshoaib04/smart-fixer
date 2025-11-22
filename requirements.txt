@@ -1,5 +1,8 @@
 Flask==2.2.2
 Flask-SQLAlchemy==2.5.1
+Flask-Login==0.6.2
+Flask-SocketIO==5.3.4
+Flask-Dance==7.0.0
 SQLAlchemy==1.4.39
 Werkzeug==2.2.2
 google-generativeai==0.7.2
@@ -9,3 +12,9 @@ pytesseract==0.3.10
 pdfplumber==0.10.2
 Pillow==10.0.1
 numpy<2.0.0
+python-socketio==5.8.0
+eventlet==0.33.3
+requests==2.31.0
+
+# Note: System-level dependencies for local execution (Java JDK, GCC, Node.js, etc.)
+# cannot be installed via pip. Please run 'open_installers.bat' or refer to 'setup_guide.md'.

@@ -1190,7 +1190,35 @@ body::before {
     padding: 1.5rem;
     overflow-y: auto;
     font-family: 'Monaco', 'Courier New', monospace;
-    line-height: 1.6;
+    line-height: 1.8;
+    white-space: pre-wrap; /* Preserve whitespace and line breaks */
+    word-wrap: break-word;
+}
+
+.output-content br {
+    display: block;
+    content: "";
+    margin: 0.3em 0;
+    line-height: 1.8;
+}
+
+.output-content strong {
+    display: block;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    font-weight: bold;
+    color: var(--primary-color);
+    font-size: 1.1em;
+}
+
+/* Ensure bullet points and numbered lists are on separate lines */
+.output-content {
+    line-height: 1.8;
+}
+
+/* Style for bullet points */
+.output-content:has-text("•") {
+    line-height: 2;
 }
 
 .input-container {

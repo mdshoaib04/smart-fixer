@@ -34,10 +34,10 @@ function toggleMenu() {
 }
 
 // Close dropdown menu when clicking outside
-document.addEventListener('click', function(event) {
+document.addEventListener('click', function (event) {
     const menuIcon = document.querySelector('.menu-icon');
     const dropdownMenu = document.getElementById('dropdownMenu');
-    
+
     if (!menuIcon.contains(event.target) && !dropdownMenu.contains(event.target)) {
         dropdownMenu.classList.remove('active');
     }
@@ -47,10 +47,10 @@ document.addEventListener('click', function(event) {
 function toggleTheme() {
     const currentTheme = document.body.getAttribute('data-theme');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
+
     document.body.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
-    
+
     if (newTheme === 'dark') {
         document.querySelector('.moon').style.display = 'none';
         document.querySelector('.sun').style.display = 'block';
@@ -111,18 +111,18 @@ function getCustomHint(cm, options) {
     const line = cm.getLine(cursor.line);
     const start = cursor.ch;
     let end = cursor.ch;
-    
+
     // Find the start of the current word
     while (start && /[\w\.$]/.test(line.charAt(start - 1))) --start;
-    
+
     // Get the current word being typed
     const word = line.slice(start, end);
     const wordLower = word.toLowerCase();
-    
+
     // Get language-specific keywords
     const language = currentLanguage.toLowerCase();
     const keywords = languageHints[language] || languageHints.python;
-    
+
     // Get all words from the document
     const docWords = {};
     for (let i = 0; i < cm.lineCount(); i++) {
@@ -134,10 +134,10 @@ function getCustomHint(cm, options) {
             }
         }
     }
-    
+
     // Combine keywords and document words
     const list = [];
-    
+
     // Add matching keywords first (with higher priority)
     for (let i = 0; i < keywords.length; i++) {
         if (keywords[i].toLowerCase().indexOf(wordLower) === 0) {
@@ -149,7 +149,7 @@ function getCustomHint(cm, options) {
             });
         }
     }
-    
+
     // Add matching document words
     for (const word in docWords) {
         if (word.toLowerCase().indexOf(wordLower) === 0 && !keywords.includes(word)) {
@@ -161,13 +161,13 @@ function getCustomHint(cm, options) {
             });
         }
     }
-    
+
     // Sort by priority and then alphabetically
     list.sort((a, b) => {
         if (a.priority !== b.priority) return b.priority - a.priority;
         return a.text.localeCompare(b.text);
     });
-    
+
     return {
         list: list,
         from: CodeMirror.Pos(cursor.line, start),
@@ -183,18 +183,20 @@ function clearCode() {
     document.getElementById('outputContent').innerHTML = '<p class="placeholder">Click Compile to execute your code...</p>';
     document.getElementById('outputActions').style.display = 'none';
     document.getElementById('inputContainer').style.display = 'none';
+    isInteractiveProgram = false;
+    currentExecId = null;
 }
 
 // Test Gemini API function
 async function testGeminiAPI() {
     showLoading('Testing Gemini AI connection...');
-    
+
     try {
         const response = await fetch('/api/test-gemini', {
             method: 'GET',
-            headers: {'Content-Type': 'application/json'}
+            headers: { 'Content-Type': 'application/json' }
         });
-        
+
         const data = await response.json();
         typewriterEffect(data.result);
         showOutputActions(); // Show copy, share, listen buttons
@@ -210,7 +212,7 @@ function getCurrentCode() {
     return code;
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
         mode: 'python',
         theme: 'monokai',
@@ -220,10 +222,10 @@ document.addEventListener('DOMContentLoaded', function() {
         indentUnit: 4,
         tabSize: 4,
         lineWrapping: true,
-        extraKeys: {"Ctrl-Space": "autocomplete"},
+        extraKeys: { "Ctrl-Space": "autocomplete" },
         viewportMargin: Infinity, // Optimize for large files
         styleActiveLine: true,
-        highlightSelectionMatches: {showToken: /\w/, annotateScrollbar: true},
+        highlightSelectionMatches: { showToken: /\w/, annotateScrollbar: true },
         hintOptions: {
             completeSingle: false,
             alignWithWord: true,
@@ -232,23 +234,20 @@ document.addEventListener('DOMContentLoaded', function() {
             hint: getCustomHint
         }
     });
-    
+
     // Enhanced autocomplete that shows automatically while typing
-    editor.on("inputRead", function(cm, change) {
+    editor.on("inputRead", function (cm, change) {
         if (change.text[0].match(/[a-zA-Z_0-9.]/)) {
-            CodeMirror.commands.autocomplete(cm, null, {completeSingle: false});
+            CodeMirror.commands.autocomplete(cm, null, { completeSingle: false });
         }
-        // Send activity event when user types
-        if (socket) {
-            socket.emit('user_activity', {});
-        }
+        // Don't send activity event - we want users to stay offline when on editor page
     });
-    
+
 
 
     const uploadedCode = sessionStorage.getItem('uploadedCode');
     const detectedLanguage = sessionStorage.getItem('detectedLanguage');
-    
+
     if (uploadedCode) {
         editor.setValue(uploadedCode);
         currentLanguage = detectedLanguage || 'Unknown';
@@ -258,16 +257,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Debounced language detection for better performance
-    editor.on('change', function() {
+    editor.on('change', function () {
         clearTimeout(languageDetectionTimeout);
-        languageDetectionTimeout = setTimeout(async function() {
+        languageDetectionTimeout = setTimeout(async function () {
             const code = editor.getValue();
             if (code.trim().length > 10) {
                 try {
                     const response = await fetch('/api/detect-language', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({code: code})
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: code })
                     });
                     const data = await response.json();
                     if (data.success) {
@@ -289,51 +288,52 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize Socket.IO for real-time chat functionality
     socket = io();
-    
-    // Send user activity event to update presence
-    socket.emit('user_activity', {});
-    
-    // Set up periodic activity updates
-    setInterval(function() {
+
+    // IMPORTANT: Mark user as offline for chat since they're on editor page (not chat page)
+    // This ensures users only show as "online" when actually on the chat page
+    socket.emit('chat_window_closed', {});
+
+    // Set up periodic offline status updates to ensure user stays offline
+    setInterval(function () {
         if (socket) {
-            socket.emit('user_activity', {});
+            socket.emit('chat_window_closed', {});
         }
-    }, 60000); // Send activity update every minute
-    
-    socket.on('receive_message', function(data) {
+    }, 60000); // Send offline update every minute
+
+    socket.on('receive_message', function (data) {
         displayMessage(data);
-        
+
         // Update chat badge when a new message arrives
         updateChatBadge();
     });
 
-    socket.on('user_joined', function(data) {
+    socket.on('user_joined', function (data) {
         console.log(data.user + ' joined the chat');
     });
 
-    socket.on('user_left', function(data) {
+    socket.on('user_left', function (data) {
         console.log(data.user + ' left the chat');
     });
-    
+
     // Listen for new notifications
-    socket.on('new_notification', function(data) {
+    socket.on('new_notification', function (data) {
         if (data.user_id === '{{ user.id }}') {
             // Update notification badge
             updateNotificationBadge();
-            
+
             // Show notification alert
             showNotification('You have a new notification!', 'info');
         }
     });
-    
+
     // Listen for user presence updates
-    socket.on('user_presence_update', function(data) {
+    socket.on('user_presence_update', function (data) {
         // Handle presence updates if needed
         console.log('User presence update:', data);
     });
-    
+
     // Listen for new chat messages
-    socket.on('new_chat_message', function(data) {
+    socket.on('new_chat_message', function (data) {
         // Update chat badge when a new message arrives
         updateChatBadge();
         displayMessage(data);
@@ -347,10 +347,10 @@ function toggleProfileDropdown() {
 }
 
 // Close profile dropdown when clicking outside
-document.addEventListener('click', function(event) {
+document.addEventListener('click', function (event) {
     const profileLogo = document.querySelector('.profile-logo');
     const profileDropdown = document.getElementById('profileDropdown');
-    
+
     if (!profileLogo.contains(event.target) && !profileDropdown.contains(event.target)) {
         profileDropdown.classList.remove('active');
     }
@@ -376,7 +376,7 @@ function openChat() {
 function displayMessage(data) {
     // This would display chat messages in a chat interface
     console.log('New message:', data);
-    
+
     // Update chat badge when a new message arrives
     updateChatBadge();
 }
@@ -388,13 +388,13 @@ function simulateNewChatMessage() {
         detail: { message: 'New message received' }
     });
     window.dispatchEvent(event);
-    
+
     // Update chat badge
     updateChatBadge();
 }
 
 // Add event listener for the custom event
-window.addEventListener('socket:new_chat_message', function(event) {
+window.addEventListener('socket:new_chat_message', function (event) {
     console.log('Received new chat message:', event.detail.message);
 });
 
@@ -492,8 +492,8 @@ function attachFile() {
     fileInput.type = 'file';
     fileInput.accept = 'image/*,video/*,.pdf,.doc,.docx,.txt,.py,.js,.html,.css,.java,.cpp,.c';
     fileInput.style.display = 'none';
-    
-    fileInput.onchange = function(event) {
+
+    fileInput.onchange = function (event) {
         const file = event.target.files[0];
         if (file) {
             // Handle file based on type
@@ -504,7 +504,7 @@ function attachFile() {
             } else {
                 // For other files, just send the file info
                 const reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = function (e) {
                     // Send file info as message
                     const message = `📎 File attached: ${file.name} (${formatFileSize(file.size)})`;
                     document.getElementById('chatInput').value = message;
@@ -513,7 +513,7 @@ function attachFile() {
             }
         }
     };
-    
+
     document.body.appendChild(fileInput);
     fileInput.click();
     document.body.removeChild(fileInput);
@@ -522,7 +522,7 @@ function attachFile() {
 // Display image preview
 function displayImagePreview(file) {
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         // Create image preview modal
         const modal = document.createElement('div');
         modal.className = 'modal active';
@@ -542,7 +542,7 @@ function displayImagePreview(file) {
 // Display video preview
 function displayVideoPreview(file) {
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         // Create video preview modal
         const modal = document.createElement('div');
         modal.className = 'modal active';
@@ -558,7 +558,7 @@ function displayVideoPreview(file) {
             </div>
         `;
         document.body.appendChild(modal);
-        
+
         // Play video when modal is shown
         const video = modal.querySelector('video');
         setTimeout(() => {
@@ -592,14 +592,14 @@ function shareCodeInChat() {
 function sendMessage() {
     const input = document.getElementById('chatInput');
     const message = input.value.trim();
-    
+
     if (message) {
         // In a real implementation, this would send the message via socket
         // For now, we'll just add it to the chat display
         const chatMessages = document.getElementById('chatMessages');
         const now = new Date();
-        const timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        
+        const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
         chatMessages.innerHTML += `
             <div class="message sent">
                 <div class="message-content">
@@ -627,15 +627,12 @@ function startNewChat() {
 }
 
 // Add user activity tracking for various interactions
-document.addEventListener('click', function(event) {
-    // Send activity event on any user interaction
-    if (socket) {
-        socket.emit('user_activity', {});
-    }
-    
+document.addEventListener('click', function (event) {
+    // Don't send activity event - we want users to stay offline when on editor page
+
     const profileLogo = document.querySelector('.profile-logo');
     const profileDropdown = document.getElementById('profileDropdown');
-    
+
     if (!profileLogo.contains(event.target) && !profileDropdown.contains(event.target)) {
         profileDropdown.classList.remove('active');
     }
@@ -644,6 +641,8 @@ document.addEventListener('click', function(event) {
 // Show loading indicator
 function showLoading(message) {
     const outputContent = document.getElementById('outputContent');
+    outputContent.style.padding = '1.5rem';
+    outputContent.style.overflow = 'auto';
     outputContent.innerHTML = `<div class="loading">${message}</div>`;
     document.getElementById('outputActions').style.display = 'none';
     document.getElementById('inputContainer').style.display = 'none';
@@ -652,6 +651,8 @@ function showLoading(message) {
 // Show error message
 function showError(message) {
     const outputContent = document.getElementById('outputContent');
+    outputContent.style.padding = '1.5rem';
+    outputContent.style.overflow = 'auto';
     outputContent.innerHTML = `<div class="error">${message}</div>`;
     document.getElementById('outputActions').style.display = 'none';
     // Don't hide input container for interactive programs
@@ -665,27 +666,150 @@ function showOutputActions() {
     document.getElementById('inputContainer').style.display = 'none';
 }
 
-// Typewriter effect for output
+// Typewriter effect for output with proper formatting
 function typewriterEffect(text) {
     const outputContent = document.getElementById('outputContent');
     outputContent.innerHTML = '';
     currentOutput = text;
-    
+
+    // Preserve line breaks - convert \n to <br>
+    // But we'll do this during typewriter effect to maintain animation
     let i = 0;
     const speed = 10; // typing speed in milliseconds
-    
+    let htmlContent = '';
+
     function typeWriter() {
         if (i < text.length) {
-            outputContent.innerHTML += text.charAt(i);
+            const char = text.charAt(i);
+
+            // Handle line breaks
+            if (char === '\n') {
+                htmlContent += '<br>';
+            } else if (char === '\r') {
+                // Skip carriage return, handle with \n
+            } else {
+                // Escape HTML characters
+                if (char === '<') {
+                    htmlContent += '&lt;';
+                } else if (char === '>') {
+                    htmlContent += '&gt;';
+                } else if (char === '&') {
+                    htmlContent += '&amp;';
+                } else {
+                    htmlContent += char;
+                }
+            }
+
+            outputContent.innerHTML = htmlContent;
             outputContent.scrollTop = outputContent.scrollHeight;
             i++;
             setTimeout(typeWriter, speed);
         } else {
+            // Final formatting - ensure proper spacing and line breaks
+            outputContent.innerHTML = formatOutputText(htmlContent);
             showOutputActions(); // Show copy, share, listen buttons when done
         }
     }
-    
+
     typeWriter();
+}
+
+// Format output text for better readability - ensure each point on new line
+function formatOutputText(text) {
+    let formatted = text;
+
+    // Split text by <br> first to process line by line
+    let parts = formatted.split('<br>');
+    let processedParts = [];
+
+    for (let part of parts) {
+        let trimmed = part.trim();
+        if (!trimmed) {
+            processedParts.push('');
+            continue;
+        }
+
+        // Check if this part has multiple bullet points on same line
+        // Pattern: "text • point1 • point2" or "• point1 • point2"
+        let bulletMatches = trimmed.match(/[•\-\*]\s+[^•\-\*]+/g);
+        if (bulletMatches && bulletMatches.length > 1) {
+            // Split by bullet points
+            let bulletSplit = trimmed.split(/([•\-\*]\s+)/);
+            let currentLine = '';
+            for (let i = 0; i < bulletSplit.length; i++) {
+                if (bulletSplit[i].match(/^[•\-\*]\s+$/)) {
+                    // This is a bullet marker
+                    if (currentLine.trim() && !currentLine.trim().match(/^[•\-\*]\s+/)) {
+                        processedParts.push(currentLine.trim());
+                        currentLine = '';
+                    }
+                    currentLine = bulletSplit[i];
+                    if (i + 1 < bulletSplit.length) {
+                        currentLine += bulletSplit[i + 1].trim();
+                        i++; // Skip next as we've processed it
+                    }
+                    processedParts.push(currentLine.trim());
+                    currentLine = '';
+                } else if (bulletSplit[i].trim()) {
+                    currentLine += bulletSplit[i];
+                }
+            }
+            if (currentLine.trim()) {
+                processedParts.push(currentLine.trim());
+            }
+        }
+        // Check if this part has multiple numbered items
+        else if (trimmed.match(/\d+\.\s+.*\d+\.\s+/)) {
+            // Split by numbered items
+            let numSplit = trimmed.split(/(\d+\.\s+)/);
+            for (let i = 0; i < numSplit.length; i += 2) {
+                if (numSplit[i] && numSplit[i + 1]) {
+                    processedParts.push((numSplit[i] + numSplit[i + 1]).trim());
+                }
+            }
+        }
+        else {
+            // Regular line - ensure bullet points and numbers are properly formatted
+            // If line starts with bullet or number, keep as is
+            if (trimmed.match(/^[•\-\*]\s+/) || trimmed.match(/^\d+\.\s+/)) {
+                processedParts.push(trimmed);
+            }
+            // If line has bullet/number in middle, split it
+            else if (trimmed.match(/[•\-\*]\s+/) || trimmed.match(/\d+\.\s+/)) {
+                // Split by bullet
+                let splitByBullet = trimmed.split(/([•\-\*]\s+)/);
+                if (splitByBullet.length > 1) {
+                    let beforeBullet = splitByBullet[0].trim();
+                    if (beforeBullet) {
+                        processedParts.push(beforeBullet);
+                    }
+                    for (let j = 1; j < splitByBullet.length; j += 2) {
+                        if (splitByBullet[j] && splitByBullet[j + 1]) {
+                            processedParts.push((splitByBullet[j] + splitByBullet[j + 1]).trim());
+                        }
+                    }
+                } else {
+                    processedParts.push(trimmed);
+                }
+            }
+            else {
+                processedParts.push(trimmed);
+            }
+        }
+    }
+
+    formatted = processedParts.join('<br>');
+
+    // Final cleanup - ensure proper spacing
+    formatted = formatted.replace(/(<br>\s*){3,}/g, '<br><br>');
+
+    // Format section headers
+    formatted = formatted.replace(/([^<])([A-Z][^:]*:)\s*(<br>|$)/g, '$1<br><strong>$2</strong><br>');
+
+    // Format code blocks
+    formatted = formatted.replace(/(```[\s\S]*?```)/g, '<pre style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px; margin: 10px 0; overflow-x: auto; white-space: pre-wrap; font-family: monospace;">$1</pre>');
+
+    return formatted;
 }
 
 // Render HTML in output area
@@ -707,7 +831,7 @@ function handleInput() {
         // Show the input in the output area
         const outputContent = document.getElementById('outputContent');
         outputContent.innerHTML += `\n> ${input}`;
-        
+
         // In a real implementation, we would send this input to the running process
         // For now, we'll just clear the input field and scroll
         document.getElementById('userInput').value = '';
@@ -739,7 +863,7 @@ function updateEditorMode(language) {
         'sql': 'sql',
         'shell': 'shell'
     };
-    
+
     const mode = modeMap[language.toLowerCase()] || 'python';
     editor.setOption('mode', mode);
 }
@@ -751,20 +875,20 @@ async function reviewCode() {
         showError('Please enter some code to review.');
         return;
     }
-    
+
     showLoading('Reviewing your code...');
-    
+
     try {
         const response = await fetch('/api/review', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 code: code,
                 language: currentLanguage,
                 profession: currentProfession
             })
         });
-        
+
         const data = await response.json();
         if (data.success) {
             typewriterEffect(data.result);
@@ -784,20 +908,20 @@ async function explainCode() {
         showError('Please enter some code to explain.');
         return;
     }
-    
+
     showLoading('Explaining your code...');
-    
+
     try {
         const response = await fetch('/api/explain', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 code: code,
                 language: currentLanguage,
                 profession: currentProfession
             })
         });
-        
+
         const data = await response.json();
         if (data.success) {
             typewriterEffect(data.result);
@@ -813,80 +937,261 @@ async function explainCode() {
 // Global variable to track if we're running an interactive program
 let isInteractiveProgram = false;
 let programExecutionId = null;
+let currentExecId = null; // Store current execution ID for interactive programs
+let currentSessionId = null; // For socket-based interactive programs
 
 // Compile code function
-async function compileCode() {
+// Store execution session ID
+let executionSessionId = null;
+let waitingForPreInput = false;
+let preExecutionInput = null;
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Listen for execution output
+    socket.on('execution_output', function (data) {
+        if (data.session_id === currentSessionId) {
+            const outputContent = document.getElementById('outputContent');
+            // Remove placeholder if present
+            const placeholder = outputContent.querySelector('.placeholder');
+            if (placeholder) {
+                outputContent.innerHTML = '';
+            }
+
+            // Append output
+            // Convert newlines to <br> and handle basic ANSI codes if needed (simplified here)
+            const text = data.output.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;');
+            const span = document.createElement('span');
+            span.innerHTML = text;
+            outputContent.appendChild(span);
+
+            // Auto-scroll to bottom
+            outputContent.scrollTop = outputContent.scrollHeight;
+
+            // Update search bar placeholder to indicate input is expected
+            const qnaInput = document.getElementById('qnaInput');
+            if (qnaInput) {
+                qnaInput.placeholder = "Program running... Type input here and press Enter";
+                qnaInput.focus();
+            }
+        }
+    });
+
+    // Listen for execution finished
+    socket.on('execution_finished', function (data) {
+        if (data.session_id === currentSessionId) {
+            // Execution finished
+            const outputContent = document.getElementById('outputContent');
+            const finishedMsg = document.createElement('div');
+            finishedMsg.className = 'execution-status';
+            finishedMsg.innerHTML = '<br><em>Program finished with exit code 0</em>';
+            finishedMsg.style.color = '#888';
+            finishedMsg.style.marginTop = '10px';
+            outputContent.appendChild(finishedMsg);
+
+            // Reset search bar
+            const qnaInput = document.getElementById('qnaInput');
+            if (qnaInput) {
+                qnaInput.placeholder = "Ask a question about your code...";
+                qnaInput.value = '';
+            }
+
+            // Show output actions
+            showOutputActions();
+
+            currentSessionId = null;
+            isInteractiveProgram = false;
+        }
+    });
+});
+
+async function compileCode(input = null) {
     console.log('compileCode function called');
-    
+
     const code = getCurrentCode();
     console.log('Code to compile:', code);
-    
+
     if (!code.trim()) {
         console.log('No code to compile');
         showError('Please enter some code to compile.');
         return;
     }
-    
+
     showLoading('Executing your code...');
-    
+
+    // Auto-detect language from content if possible (to handle incorrect dropdown selection)
+    if (code.includes('public class') && code.includes('static void main')) {
+        currentLanguage = 'java';
+        console.log('Auto-detected Java');
+    } else if (code.includes('#include') && code.includes('<iostream>')) {
+        currentLanguage = 'cpp';
+        console.log('Auto-detected C++');
+    } else if (code.includes('#include') && code.includes('<stdio.h>')) {
+        currentLanguage = 'c';
+        console.log('Auto-detected C');
+    }
+
+    // Pre-execution input check REMOVED to allow true interactive mode
+    // The backend will now handle interactivity via WebSockets
+
+    // Generate session ID for this execution
+    executionSessionId = Date.now().toString();
+    currentSessionId = executionSessionId;
+    isInteractiveProgram = true;
+
+    // Update search bar placeholder
+    const qnaInput = document.getElementById('qnaInput');
+    if (qnaInput) {
+        qnaInput.placeholder = "Program running... Type input here and press Enter";
+    }
+
     try {
         console.log('Sending request to /api/execute with data:', {
             code: code,
-            language: currentLanguage
+            language: currentLanguage,
+            session_id: executionSessionId
         });
-        
+
         const response = await fetch('/api/execute', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 code: code,
-                language: currentLanguage
+                language: currentLanguage,
+                session_id: executionSessionId,
+                stdin: input || preExecutionInput || ""
             })
         });
-        
+
+        // Clear pre-input state
+        preExecutionInput = null;
+        waitingForPreInput = false;
+
         // Log the response for debugging
         console.log('API Response Status:', response.status);
         console.log('API Response Object:', response);
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             console.error('API Error Response Text:', errorText);
             showError(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
+            isInteractiveProgram = false;
             return;
         }
-        
+
         const data = await response.json();
         console.log('API Response Data:', data);
-        
+
         if (data.success) {
-            // Check the type of result
-            if (data.type === 'html') {
-                // For HTML, render in an iframe
-                renderHTML(data.result);
-            } else if (data.type === 'output') {
-                // For regular output
-                typewriterEffect(data.result);
-                // Check if the output suggests the program is waiting for input
-                if (shouldShowInputContainer(data.result)) {
-                    showInputContainer();
+            // Handle web languages (HTML, CSS, JSP) - show in iframe in output frame AND open in new tab
+            if (data.type === 'web' && (data.url || data.file_path)) {
+                isInteractiveProgram = false;
+                currentExecId = null;
+                const outputContent = document.getElementById('outputContent');
+                // Clear any existing content and set up iframe container
+                outputContent.innerHTML = '';
+                outputContent.style.padding = '0';
+                outputContent.style.overflow = 'hidden';
+                outputContent.style.height = '100%';
+
+                // Use the correct URL property
+                const url = data.url || data.file_path;
+
+                // Show in iframe within the output frame
+                const iframe = document.createElement('iframe');
+                iframe.src = url;
+                iframe.style.cssText = 'width:100%; height:100%; min-height:500px; border:none; background: white; display:block;';
+                iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+                outputContent.appendChild(iframe);
+
+                // Open in new browser tab as requested
+                window.open(url, '_blank');
+
+                showOutputActions();
+                hideInputContainer();
+
+                // Reset search bar
+                if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
+            }
+            // Handle Piston/Cloud execution output
+            else if (data.type === 'piston' || data.output) {
+                isInteractiveProgram = false;
+                currentExecId = null;
+                const outputContent = document.getElementById('outputContent');
+                outputContent.style.padding = '1.5rem';
+                outputContent.style.overflow = 'auto';
+
+                // Display the output directly
+                typewriterEffect(data.output || data.result || 'Code executed successfully.');
+
+                hideInputContainer();
+
+                // Reset search bar
+                if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
+            }
+            // Handle interactive programs - terminal-like interface
+            else if (data.type === 'interactive') {
+                // Output will be streamed via socket
+                const outputContent = document.getElementById('outputContent');
+                outputContent.innerHTML = ''; // Clear loading message
+                outputContent.style.padding = '1.5rem';
+                outputContent.style.overflow = 'auto';
+
+                // Focus search bar for input
+                if (qnaInput) qnaInput.focus();
+            }
+            // Handle regular output
+            else if (data.type === 'output') {
+                isInteractiveProgram = false;
+                currentExecId = null;
+                const outputContent = document.getElementById('outputContent');
+                outputContent.style.padding = '1.5rem';
+                outputContent.style.overflow = 'auto';
+                // Show actual output - check if result exists and has content
+                const result = data.result || '';
+                if (result && result.trim().length > 0) {
+                    // We have actual output - show it
+                    typewriterEffect(result);
+                } else if (result === '' || result === null || result === undefined) {
+                    // Truly no output - show message
+                    outputContent.innerHTML = '<div style="color: var(--text-color); padding: 20px; text-align: center;"><p>✅ Code executed successfully.</p><p style="color: var(--text-secondary-color); font-size: 0.9em; margin-top: 10px;">No output was produced by the program.</p></div>';
+                    showOutputActions();
+                } else {
+                    // Fallback - show whatever we got
+                    typewriterEffect(result);
                 }
-            } else if (data.type === 'error') {
-                // For errors
+                hideInputContainer();
+            }
+            // Handle errors
+            else if (data.type === 'error') {
+                isInteractiveProgram = false;
+                currentExecId = null;
+                const outputContent = document.getElementById('outputContent');
+                outputContent.style.padding = '1.5rem';
+                outputContent.style.overflow = 'auto';
                 showError(data.result);
-                // Show input container for interactive programs that might still need input
-                if (shouldShowInputContainer(data.result)) {
-                    showInputContainer();
-                }
-            } else {
-                // For simulation results
-                typewriterEffect(data.result);
+                hideInputContainer();
+            }
+            // Default - show result
+            else {
+                isInteractiveProgram = false;
+                currentExecId = null;
+                const outputContent = document.getElementById('outputContent');
+                outputContent.style.padding = '1.5rem';
+                outputContent.style.overflow = 'auto';
+                typewriterEffect(data.result || 'Code executed successfully.');
+                hideInputContainer();
             }
         } else {
-            showError(data.result || 'Failed to execute code.');
+            isInteractiveProgram = false;
+            currentExecId = null;
+            showError(data.result || data.error || 'Failed to execute code.');
+            if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
         }
     } catch (error) {
-        console.error('Execute error:', error);
-        showError('Failed to execute code. Please try again. Error: ' + error.message);
+        console.error('Error compiling code:', error);
+        showError('Failed to connect to the server. Please try again.');
+        isInteractiveProgram = false;
+        if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
     }
 }
 
@@ -918,72 +1223,158 @@ function hideInputContainer() {
 // Check if we should show the input container based on the output
 function shouldShowInputContainer(output) {
     if (!output) return false;
-    
+
     // Common patterns that indicate a program is waiting for input
     const inputIndicators = [
         'Enter', 'input', 'please', 'num', 'value', 'choice',
         'select', 'option', 'enter a', 'enter the', 'provide',
         'type', 'insert', 'write', 'key in'
     ];
-    
+
     // Check if output ends with a prompt character
     if (output.trim().endsWith(':') || output.trim().endsWith('?')) {
         return true;
     }
-    
+
     // Check for common input indicators
     const lowerOutput = output.toLowerCase();
     return inputIndicators.some(indicator => lowerOutput.includes(indicator));
 }
 
-// Handle input for interactive programs
-async function handleInput() {
-    const input = document.getElementById('userInput').value;
-    if (input) {
-        // Show the input in the output area
-        const outputContent = document.getElementById('outputContent');
-        outputContent.innerHTML += `\n> ${input}\n`;
-        
-        // Scroll to bottom
-        outputContent.scrollTop = outputContent.scrollHeight;
-        
-        // Clear the input field
-        document.getElementById('userInput').value = '';
-        
-        // Send input to the server for processing
+// Handle input for interactive programs - terminal-like experience
+async function handleTerminalInput() {
+    const terminalInput = document.getElementById('terminalInput');
+    const input = terminalInput.value;
+    // Allow empty string, '0', and any other input
+    if (input === null || input === undefined) return;
+
+    const terminalOutput = document.getElementById('terminalOutput');
+    const inputLine = document.createElement('div');
+    inputLine.style.cssText = 'color: var(--accent-color); font-family: monospace;';
+    inputLine.textContent = `$ ${input}`;
+    terminalOutput.appendChild(inputLine);
+
+    // Clear input field
+    terminalInput.value = '';
+
+    // Scroll to bottom
+    terminalOutput.scrollTop = terminalOutput.scrollHeight;
+
+    // Send input to backend
+    if (currentExecId) {
         try {
-            const response = await fetch('/api/send-input', {
+            const response = await fetch('/api/execute/input', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    execution_id: programExecutionId,
+                    exec_id: currentExecId,
                     input: input
                 })
             });
-            
+
             const data = await response.json();
+
             if (data.success) {
-                // Append the program's response to output
-                if (data.output) {
-                    outputContent.innerHTML += data.output;
-                    outputContent.scrollTop = outputContent.scrollHeight;
+                // Append output to terminal
+                if (data.result) {
+                    const outputLine = document.createElement('div');
+                    outputLine.style.cssText = 'color: var(--text-color); font-family: monospace; margin-top: 5px;';
+                    outputLine.textContent = data.result;
+                    terminalOutput.appendChild(outputLine);
                 }
-                
-                // Check if program is still waiting for more input
-                if (data.waiting_for_input) {
-                    showInputContainer();
+
+                // Check if program finished
+                if (data.finished) {
+                    isInteractiveProgram = false;
+                    currentExecId = null;
+                    // Remove input line
+                    const inputLineDiv = document.getElementById('terminalInputLine');
+                    if (inputLineDiv) {
+                        inputLineDiv.style.display = 'none';
+                    }
+                    showOutputActions();
                 } else {
-                    hideInputContainer();
+                    // Keep input line visible for more input
+                    terminalInput.focus();
                 }
             } else {
-                showError(data.result || 'Failed to send input to program.');
-                hideInputContainer();
+                const errorLine = document.createElement('div');
+                errorLine.style.cssText = 'color: #ff4757; font-family: monospace; margin-top: 5px;';
+                errorLine.textContent = `Error: ${data.error || 'Unknown error'}`;
+                terminalOutput.appendChild(errorLine);
             }
+
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
         } catch (error) {
-            showError('Failed to send input to program. Please try again.');
-            console.error('Input error:', error);
-            hideInputContainer();
+            const errorLine = document.createElement('div');
+            errorLine.style.cssText = 'color: #ff4757; font-family: monospace; margin-top: 5px;';
+            errorLine.textContent = `Error: ${error.message}`;
+            terminalOutput.appendChild(errorLine);
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
         }
+    }
+}
+
+// Legacy function for backward compatibility
+async function handleInput() {
+    // Check if we're using terminal input
+    const terminalInput = document.getElementById('terminalInput');
+    if (terminalInput) {
+        await handleTerminalInput();
+        return;
+    }
+
+    // Fallback to old input container
+    const input = document.getElementById('userInput').value;
+    if (!input || !input.trim()) return;
+
+    const outputContent = document.getElementById('outputContent');
+
+    // Display user input in terminal-like format with proper formatting
+    const inputLine = `<div style="color: var(--accent-color); margin: 5px 0; font-family: monospace;">$ <span style="color: var(--text-color);">${escapeHtml(input)}</span></div>`;
+    outputContent.innerHTML += inputLine;
+    outputContent.scrollTop = outputContent.scrollHeight;
+
+    // Clear input field
+    document.getElementById('userInput').value = '';
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Handle Q&A enter key
+function handleQnAEnter(event) {
+    if (event.key === 'Enter') {
+        // Check if we are in an interactive session
+        if (isInteractiveProgram && currentSessionId) {
+            const inputField = document.getElementById('qnaInput');
+            const input = inputField.value;
+
+            // Display input in output window for better context
+            const outputContent = document.getElementById('outputContent');
+            const inputDisplay = document.createElement('span');
+            inputDisplay.textContent = input + '\n';
+            inputDisplay.style.color = '#4CAF50'; // Green color for user input
+            inputDisplay.style.fontWeight = 'bold';
+            outputContent.appendChild(inputDisplay);
+            outputContent.scrollTop = outputContent.scrollHeight;
+
+            // Send input to server
+            socket.emit('execution_input', {
+                session_id: currentSessionId,
+                input: input
+            });
+
+            inputField.value = '';
+            return;
+        }
+
+        // Normal Q&A behavior
+        askQuestion();
     }
 }
 
@@ -991,25 +1382,25 @@ async function handleInput() {
 async function askQuestion() {
     const question = document.getElementById('qnaInput').value.trim();
     const code = getCurrentCode();
-    
+
     if (!question) {
         showError('Please enter a question.');
         return;
     }
-    
+
     showLoading('Thinking...');
-    
+
     try {
         const response = await fetch('/api/question', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 question: question,
                 code: code,
                 language: currentLanguage
             })
         });
-        
+
         const data = await response.json();
         if (data.success) {
             typewriterEffect(data.result);
@@ -1020,13 +1411,6 @@ async function askQuestion() {
     } catch (error) {
         showError('Failed to answer question. Please try again.');
         console.error('Question error:', error);
-    }
-}
-
-// Handle enter key in Q&A input
-function handleQnAEnter(event) {
-    if (event.key === 'Enter') {
-        askQuestion();
     }
 }
 
@@ -1066,31 +1450,31 @@ function listenOutput() {
 async function translateCode() {
     const code = editor.getValue();
     const toLang = document.getElementById('toLang').value;
-    
+
     if (!code.trim()) {
         alert('Please enter some code to translate.');
         return;
     }
-    
+
     if (currentLanguage === toLang) {
         alert('Source and target languages are the same.');
         return;
     }
-    
+
     const translateResult = document.getElementById('translateResult');
     translateResult.innerHTML = '<div class="loading">Translating code...</div>';
-    
+
     try {
         const response = await fetch('/api/translate', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 code: code,
                 from_lang: currentLanguage,
                 to_lang: toLang
             })
         });
-        
+
         const data = await response.json();
         if (data.success) {
             translateResult.innerHTML = `<pre><code>${data.result}</code></pre>`;
@@ -1113,24 +1497,24 @@ async function searchDictionary() {
     const searchTerm = document.getElementById('dictSearch').value.trim();
     const language = document.getElementById('dictLanguage').value;
     const dictionaryContent = document.getElementById('dictionaryContent');
-    
+
     if (!searchTerm) {
         dictionaryContent.innerHTML = '<p class="placeholder">Enter a term to search for code templates...</p>';
         return;
     }
-    
+
     dictionaryContent.innerHTML = '<div class="loading">Searching...</div>';
-    
+
     try {
         const response = await fetch('/api/dictionary', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 term: searchTerm,
                 language: language
             })
         });
-        
+
         const data = await response.json();
         if (data.success) {
             dictionaryContent.innerHTML = `<pre><code>${data.result}</code></pre>`;

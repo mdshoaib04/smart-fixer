@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/eclipse.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/matchesonscrollbar.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/matchesonscrollbar.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.js"></script>
@@ -17,9 +19,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/searchcursor.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/match-highlighter.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/matchesonscrollbar.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/annotatescrollbar.min.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/match-highlighter.min.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/matchesonscrollbar.min.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/annotatescrollbar.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
@@ -35,68 +40,77 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/shell/shell.min.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
+
 <body class="editor-page">
     <div class="top-bar">
         <div class="top-left">
             <div class="nav-controls">
                 <button class="back-btn tooltip" data-tooltip="Back" onclick="goBack()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
                     </svg>
                 </button>
-                
+
                 <div class="menu-icon tooltip" data-tooltip="Menu" onclick="toggleMenu()">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="5" r="1"/>
-                        <circle cx="12" cy="12" r="1"/>
-                        <circle cx="12" cy="19" r="1"/>
+                        <circle cx="12" cy="5" r="1" />
+                        <circle cx="12" cy="12" r="1" />
+                        <circle cx="12" cy="19" r="1" />
                     </svg>
                 </div>
             </div>
-            
+
             <div class="dropdown-menu" id="dropdownMenu">
                 <a href="#" onclick="showDictionary(); return false;">📚 Dictionary</a>
                 <a href="#" onclick="showTranslate(); return false;">🔄 Translate Code</a>
                 <a href="#" onclick="showHistory(); return false;">📜 Code History</a>
             </div>
         </div>
-        
+
         <div class="top-right">
-            <div class="chat-icon tooltip" data-tooltip="Chat" onclick="openChat()" style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin: 0 2px; position: relative;">
+            <div class="chat-icon tooltip" data-tooltip="Chat" onclick="openChat()"
+                style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin: 0 2px; position: relative;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
-                <span class="chat-badge" id="chatBadge" style="position: absolute; top: -5px; right: -5px; background-color: #ff4757; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; display: none;">0</span>
+                <span class="chat-badge" id="chatBadge"
+                    style="position: absolute; top: -5px; right: -5px; background-color: #ff4757; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; display: none;">0</span>
             </div>
-            
-            <div class="notification-icon tooltip" data-tooltip="Notifications" onclick="openNotifications()" style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; position: relative; margin: 0 2px;">
+
+            <div class="notification-icon tooltip" data-tooltip="Notifications" onclick="openNotifications()"
+                style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; position: relative; margin: 0 2px;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                     <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
-                <span class="notification-badge" id="notificationBadge" style="position: absolute; top: -5px; right: -5px; background-color: #ff4757; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold;">0</span>
+                <span class="notification-badge" id="notificationBadge"
+                    style="position: absolute; top: -5px; right: -5px; background-color: #ff4757; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold;">0</span>
             </div>
-            
-            <div class="theme-toggle tooltip" data-tooltip="Theme" onclick="toggleTheme()" style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin: 0 2px;">
+
+            <div class="theme-toggle tooltip" data-tooltip="Theme" onclick="toggleTheme()"
+                style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin: 0 2px;">
                 <svg class="theme-icon moon" width="18" height="18" viewBox="0 0 24 24" fill="white">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
-                <svg class="theme-icon sun" width="18" height="18" viewBox="0 0 24 24" fill="white" style="display: none;">
-                    <circle cx="12" cy="12" r="5"/>
-                    <line x1="12" y1="1" x2="12" y2="3"/>
-                    <line x1="12" y1="21" x2="12" y2="23"/>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                    <line x1="1" y1="12" x2="3" y2="12"/>
-                    <line x1="21" y1="12" x2="23" y2="12"/>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                <svg class="theme-icon sun" width="18" height="18" viewBox="0 0 24 24" fill="white"
+                    style="display: none;">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
             </div>
-            
-            <div class="profile-logo tooltip" data-tooltip="Personal Details" onclick="toggleProfileDropdown()" style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin: 0 2px;">
-                <span id="userInitials" style="color: white; font-weight: bold; font-size: 14px;">{{ user.first_name[0] if user.first_name else 'U' }}{{ user.last_name[0] if user.last_name else '' }}</span>
-                
+
+            <div class="profile-logo tooltip" data-tooltip="Personal Details" onclick="toggleProfileDropdown()"
+                style="background-color: var(--primary-color); padding: 6px; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin: 0 2px;">
+                <span id="userInitials" style="color: white; font-weight: bold; font-size: 14px;">{{ user.first_name[0]
+                    if user.first_name else 'U' }}{{ user.last_name[0] if user.last_name else '' }}</span>
+
                 <div class="profile-dropdown" id="profileDropdown">
                     <a href="#" onclick="openProfile(); return false;">👤 My Profile</a>
                     <a href="#" onclick="openPosts(); return false;">📝 My Posts</a>
@@ -108,7 +122,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="main-interface">
         <div class="left-panel">
             <div class="profession-selector-container">
@@ -132,48 +146,52 @@
                     Clear Code
                 </button>
             </div>
-            
+
             <div class="code-editor-container">
                 <textarea id="codeEditor"></textarea>
             </div>
-            
+
             <div class="action-buttons">
                 <button class="action-btn review-btn" onclick="reviewCode()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9 11l3 3L22 4"/>
-                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        <path d="M9 11l3 3L22 4" />
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                     </svg>
                     Review
                 </button>
                 <button class="action-btn explain-btn" onclick="explainCode()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
                     Explain
                 </button>
                 <button class="action-btn compile-btn" onclick="compileCode()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="16 18 22 12 16 6"/>
-                        <polyline points="8 6 2 12 8 18"/>
+                        <polyline points="16 18 22 12 16 6" />
+                        <polyline points="8 6 2 12 8 18" />
                     </svg>
                     Compile
                 </button>
             </div>
         </div>
-        
+
         <div class="right-panel">
             <div class="output-container">
                 <div class="output-header">Code Output</div>
                 <div class="output-content" id="outputContent">
                     <p class="placeholder">Click Compile to execute your code...</p>
                 </div>
-                <div class="input-container" id="inputContainer" style="display: none; padding: 10px; border-top: 1px solid var(--border-color); background-color: var(--input-bg-color);">
+                <div class="input-container" id="inputContainer"
+                    style="display: none; padding: 10px; border-top: 1px solid var(--border-color); background-color: var(--input-bg-color);">
                     <div style="display: flex; align-items: center; width: 100%;">
                         <span style="margin-right: 10px; color: var(--text-color);">▶</span>
-                        <input type="text" id="userInput" placeholder="Enter input for your program..." style="flex: 1; padding: 8px; margin-right: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--bg-color); color: var(--text-color);" onkeypress="if(event.key==='Enter')handleInput()">
-                        <button onclick="handleInput()" style="padding: 8px 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Send</button>
+                        <input type="text" id="userInput" placeholder="Enter input for your program..."
+                            style="flex: 1; padding: 8px; margin-right: 10px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--bg-color); color: var(--text-color);"
+                            onkeypress="if(event.key==='Enter')handleInput()">
+                        <button onclick="handleInput()"
+                            style="padding: 8px 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Send</button>
                     </div>
                     <div style="margin-top: 5px; font-size: 0.8em; color: var(--text-secondary-color);">
                         Program is waiting for input. Press Enter or click Send to submit.
@@ -181,44 +199,48 @@
                 </div>
                 <div class="output-actions" id="outputActions" style="display: none;">
                     <button class="output-action-btn" onclick="copyOutput()" title="Copy Output">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                         </svg>
                         Copy
                     </button>
                     <button class="output-action-btn" onclick="shareOutput()" title="Share Output">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="18" cy="5" r="3"/>
-                            <circle cx="6" cy="12" r="3"/>
-                            <circle cx="18" cy="19" r="3"/>
-                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="18" cy="5" r="3" />
+                            <circle cx="6" cy="12" r="3" />
+                            <circle cx="18" cy="19" r="3" />
+                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                         </svg>
                         Share
                     </button>
                     <button class="output-action-btn" onclick="listenOutput()" title="Listen to Output">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
                         </svg>
                         Listen
                     </button>
                 </div>
             </div>
-            
+
             <div class="qna-container">
-                <input type="text" id="qnaInput" placeholder="Ask a question about your code..." onkeypress="handleQnAEnter(event)">
+                <input type="text" id="qnaInput" placeholder="Ask a question about your code..."
+                    onkeypress="handleQnAEnter(event)">
                 <button onclick="askQuestion()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="22" y1="2" x2="11" y2="13"/>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
                     </svg>
                 </button>
             </div>
         </div>
     </div>
-    
+
     <div class="modal" id="dictionaryModal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('dictionaryModal')">&times;</span>
@@ -253,11 +275,13 @@
                 <option value="SQL">SQL</option>
                 <option value="Shell">Shell</option>
             </select>
-            <input type="text" id="dictSearch" placeholder="Search code templates (e.g., GCD, factorial, binary search)..." oninput="searchDictionary()">
+            <input type="text" id="dictSearch"
+                placeholder="Search code templates (e.g., GCD, factorial, binary search)..."
+                oninput="searchDictionary()">
             <div id="dictionaryContent"></div>
         </div>
     </div>
-    
+
     <div class="modal" id="translateModal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('translateModal')">&times;</span>
@@ -305,7 +329,7 @@
             <div id="translateResult"></div>
         </div>
     </div>
-    
+
     <div class="modal" id="historyModal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('historyModal')">&times;</span>
@@ -313,7 +337,7 @@
             <div id="historyContent"></div>
         </div>
     </div>
-    
+
     <div class="modal" id="postModal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('postModal')">&times;</span>
@@ -322,7 +346,7 @@
             <button onclick="createPost()">Share</button>
         </div>
     </div>
-    
+
     <!-- Share with Friends Modal -->
     <div class="modal" id="shareFriendsModal">
         <div class="modal-content">
@@ -337,26 +361,37 @@
             </div>
         </div>
     </div>
-    
+
     <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
     <script>
-        // Initialize Socket.IO for real-time chat functionality
-        const socket = io();
-        
-        // Join user's personal room for notifications
-        socket.emit('join', {room: `user_{{ user.id }}`});
-        
-        // Socket event listeners
-        socket.on('receive_message', displayMessage);
-        socket.on('user_joined', (data) => {
-            console.log(data.user + ' joined the chat');
+        document.addEventListener('DOMContentLoaded', function () {
+            // Socket is initialized in editor.js
+            if (socket) {
+                // Join user's personal room for notifications
+                socket.emit('join', { room: `user_{{ user.id }}` });
+
+                // Socket event listeners
+                socket.on('receive_message', displayMessage);
+                socket.on('user_joined', (data) => {
+                    console.log(data.user + ' joined the chat');
+                });
+                socket.on('user_left', (data) => {
+                    console.log(data.user + ' left the chat');
+                });
+
+                // IMPORTANT: Mark user as offline for chat since they're on editor page (not chat page)
+                // This ensures users only show as "online" when actually on the chat page
+                socket.emit('chat_window_closed', {});
+
+                // Also emit on socket reconnection
+                socket.on('connect', function () {
+                    socket.emit('chat_window_closed', {});
+                });
+            }
         });
-        socket.on('user_left', (data) => {
-            console.log(data.user + ' left the chat');
-        });
-        
+
         // Listen for new notifications
-        socket.on('new_notification', function(data) {
+        socket.on('new_notification', function (data) {
             if (data.user_id === '{{ user.id }}') {
                 // Update notification badge
                 const badge = document.getElementById('notificationBadge');
@@ -367,6 +402,14 @@
                 }
             }
         });
+
+        // Keep user marked as offline when on this page
+        window.addEventListener('focus', function () {
+            if (socket && socket.connected) {
+                socket.emit('chat_window_closed', {});
+            }
+        });
     </script>
 </body>
+
 </html>

@@ -3,180 +3,184 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>time tracker</title>
+  <title>Time Tracker</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/time_tracker.css') }}" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
   <header class="tt-header">
-    <button id="backBtn" class="icon-btn back" aria-label="Back">⬅</button>
+    <button id="backBtn" class="icon-btn back" aria-label="Back">
+      <i class="fas fa-arrow-left"></i>
+    </button>
     <h1 class="tt-title">time tracker</h1>
-    <button id="themeToggle" class="icon-btn theme" aria-label="Toggle theme">🌗</button>
+    <button id="themeToggle" class="icon-btn theme" aria-label="Toggle theme">
+      <i class="fas fa-moon"></i>
+    </button>
   </header>
 
   <main class="tt-main">
     <!-- Stats row -->
-    <section class="stats-row" aria-label="Statistics">
+    <section class="stats-row" aria-label="Time Statistics">
       <div class="stat-card">
-        <div id="stat-today" class="stat-value">0</div>
+        <div id="today-hrs" class="stat-value">2</div>
         <div class="stat-label">Today (hrs)</div>
       </div>
       <div class="stat-card">
-        <div id="stat-week" class="stat-value">0</div>
+        <div id="week-hrs" class="stat-value">18</div>
         <div class="stat-label">This Week (hrs)</div>
       </div>
       <div class="stat-card">
-        <div id="stat-month" class="stat-value">0</div>
+        <div id="month-hrs" class="stat-value">69</div>
         <div class="stat-label">This Month (hrs)</div>
       </div>
     </section>
 
     <!-- GitHub-style Contribution Graph -->
     <section class="contribution-graph-section">
-        <div class="graph-header">
-            <h2 class="graph-title" id="contributionGraphTitle">0 contributions in the last year</h2>
-            <div class="dropdown">
-                <button class="dropdown-trigger" onclick="toggleContributionSettings()">Contribution settings ▼</button>
-                <div class="dropdown-panel" id="contributionSettings">
-                    <label class="opt">
-                        <input type="checkbox" id="togglePrivateContributions" checked />
-                        Show private contributions
-                    </label>
-                    <label class="opt">
-                        <input type="checkbox" id="toggleActivityOverview" checked />
-                        Show activity overview
-                    </label>
-                </div>
+      <div class="graph-header">
+        <h2 class="graph-title" id="contributionGraphTitle">1 contribution in the last year</h2>
+        <div class="dropdown">
+          <button class="dropdown-trigger" id="moreDropdownBtn">
+            More <i class="fas fa-caret-down"></i>
+          </button>
+          <div class="dropdown-panel" id="moreDropdown">
+            <div class="dropdown-option">
+              <label class="toggle-container">
+                <input type="checkbox" id="compareFriendToggle">
+                <span class="toggle-label">Compare with Friend 👥</span>
+              </label>
+              <div id="friendUsernameContainer" class="friend-input" style="display: none;">
+                <input type="text" id="friendUsername" placeholder="Enter username" class="input-field">
+              </div>
             </div>
-        </div>
-        <div class="contribution-grid-container">
-            <div class="month-labels" id="monthLabels">
-                <!-- Month labels will be dynamically generated here -->
+            <div class="dropdown-option">
+              <label class="toggle-container">
+                <input type="checkbox" id="showWeeklyAverage">
+                <span class="toggle-label">Show Weekly Average 📈</span>
+              </label>
             </div>
-            <div class="day-labels">
-                <span>Mon</span>
-                <span></span>
-                <span>Wed</span>
-                <span></span>
-                <span>Fri</span>
-                <span></span>
-                <span></span>
+            <div class="dropdown-option">
+              <label class="toggle-container">
+                <input type="checkbox" id="showLongestStreak">
+                <span class="toggle-label">Show Longest Streak 🔥</span>
+              </label>
             </div>
-            <div class="contribution-grid" id="contributionGrid">
-                <!-- Contribution squares will be dynamically generated here -->
+            <div class="dropdown-option">
+              <label class="toggle-container">
+                <input type="checkbox" id="highlightActiveDays">
+                <span class="toggle-label">Highlight Active Days 🌟</span>
+              </label>
             </div>
-        </div>
-        <div class="contribution-footer">
-            <a href="#" class="learn-more">Learn how we count contributions</a>
-            <div class="legend">
-                <span>Less</span>
-                <span class="legend-dot l0"></span>
-                <span class="legend-dot l1"></span>
-                <span class="legend-dot l2"></span>
-                <span class="legend-dot l3"></span>
-                <span class="legend-dot l4"></span>
-                <span>More</span>
-            </div>
-        </div>
-    </section>
-
-    <!-- Contribution Activity Section -->
-    <section class="contribution-activity-section">
-        <div class="activity-header">
-            <h2 class="activity-title">Contribution activity</h2>
-            <div class="year-select">
-                <label for="activityYearSelect">Year:</label>
-                <select id="activityYearSelect"></select>
-            </div>
-        </div>
-        <div class="activity-body">
-            <p id="yearTotalContributions">0 contributions in <span id="activityYearDisplay"></span></p>
-            <!-- More detailed activity could go here -->
-        </div>
-    </section>
-          <div class="friend-title">Friend: <span id="friendLabel"></span></div>
-          <div id="friendMonthsRow" class="months-row"></div>
-          <div class="heatmap-layout">
-            <div class="days-col">
-              <span>Mon</span>
-              <span>Wed</span>
-              <span>Fri</span>
-            </div>
-            <div class="heatmap-wrapper">
-              <div id="friendHeatmap" class="heatmap-grid"></div>
-              <div id="friendAvgLine" class="avg-line"></div>
+            <div class="dropdown-option">
+              <label class="toggle-container">
+                <input type="checkbox" id="showMonthlyStats">
+                <span class="toggle-label">Show Monthly Stats 📊</span>
+              </label>
             </div>
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- GitHub-style Contribution Graph -->
-    <section class="contribution-graph-section">
-        <div class="graph-header">
-            <h2 class="graph-title" id="contributionGraphTitle">0 contributions in the last year</h2>
-            <div class="dropdown">
-                <button class="dropdown-trigger" onclick="toggleContributionSettings()">Contribution settings ▼</button>
-                <div class="dropdown-panel" id="contributionSettings">
-                    <label class="opt">
-                        <input type="checkbox" id="togglePrivateContributions" checked />
-                        Show private contributions
-                    </label>
-                    <label class="opt">
-                        <input type="checkbox" id="toggleActivityOverview" checked />
-                        Show activity overview
-                    </label>
-                </div>
-            </div>
+      <div class="contribution-grid-container">
+        <div class="month-labels" id="monthLabels">
+          <span style="grid-column: 1 / 5">Oct</span>
+          <span style="grid-column: 9 / 13">Nov</span>
+          <span style="grid-column: 17 / 21">Dec</span>
+          <span style="grid-column: 25 / 28">Jan</span>
+          <span style="grid-column: 30 / 34">Feb</span>
+          <span style="grid-column: 38 / 42">Mar</span>
+          <span style="grid-column: 46 / 50">Apr</span>
+          <span style="grid-column: 51 / 53">May</span>
+          <span style="grid-column: 55 / 59">Jun</span>
+          <span style="grid-column: 63 / 66">Jul</span>
+          <span style="grid-column: 70 / 74">Aug</span>
+          <span style="grid-column: 78 / 82">Sep</span>
         </div>
-        <div class="contribution-grid-container">
-            <div class="month-labels" id="monthLabels">
-                <!-- Month labels will be dynamically generated here -->
-            </div>
-            <div class="day-labels">
-                <span>Mon</span>
-                <span></span>
-                <span>Wed</span>
-                <span></span>
-                <span>Fri</span>
-                <span></span>
-                <span></span>
-            </div>
-            <div class="contribution-grid" id="contributionGrid">
-                <!-- Contribution squares will be dynamically generated here -->
-            </div>
+        <div class="day-labels">
+          <span>Mon</span>
+          <span>Wed</span>
+          <span>Fri</span>
         </div>
-        <div class="contribution-footer">
-            <a href="#" class="learn-more">Learn how we count contributions</a>
-            <div class="legend">
-                <span>Less</span>
-                <span class="legend-dot l0"></span>
-                <span class="legend-dot l1"></span>
-                <span class="legend-dot l2"></span>
-                <span class="legend-dot l3"></span>
-                <span class="legend-dot l4"></span>
-                <span>More</span>
-            </div>
+        <div class="contribution-grid" id="contributionGrid">
+          <!-- Contribution squares will be dynamically generated here -->
         </div>
+      </div>
+
+      <div class="contribution-footer">
+        <div class="legend">
+          <span>Less</span>
+          <span class="legend-dot l0"></span>
+          <span class="legend-dot l1"></span>
+          <span class="legend-dot l2"></span>
+          <span class="legend-dot l3"></span>
+          <span class="legend-dot l4"></span>
+          <span>More</span>
+        </div>
+      </div>
     </section>
 
     <!-- Contribution Activity Section -->
     <section class="contribution-activity-section">
-        <div class="activity-header">
-            <h2 class="activity-title">Contribution activity</h2>
-            <div class="year-select">
-                <label for="activityYearSelect">Year:</label>
-                <select id="activityYearSelect"></select>
-            </div>
+      <div class="activity-header">
+        <h2 class="activity-title">Contribution activity</h2>
+        <div class="year-select">
+          <select id="activityYearSelect" class="year-select-dropdown">
+            <option value="2025" selected>2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+          </select>
         </div>
-        <div class="activity-body">
-            <p id="yearTotalContributions">0 contributions in <span id="activityYearDisplay"></span></p>
-            <!-- More detailed activity could go here -->
-        </div>
+      </div>
+      <div class="activity-body">
+        <p id="yearTotalContributions">0 contributions in <span id="activityYearDisplay">2025</span></p>
+      </div>
     </section>
+
+    <!-- Streak Information -->
+    <div class="streak-info">
+      <div class="streak-item">
+        <span class="streak-label">Longest streak:</span>
+        <span id="longest-streak" class="streak-value">0 days</span>
+      </div>
+      <div class="streak-item">
+        <span class="streak-label">Current streak:</span>
+        <span id="current-streak" class="streak-value">0 days</span>
+      </div>
+    </div>
+
+    <!-- Friend Comparison Section (Hidden by default) -->
+    <div id="friendComparison" class="friend-comparison" style="display: none;">
+      <div class="friend-header">
+        <h3>Comparison with <span id="friendName">Friend</span></h3>
+      </div>
+      <div class="friend-heatmap-container">
+        <div class="friend-month-labels" id="friendMonthLabels"></div>
+        <div class="friend-day-labels">
+          <span>Mon</span>
+          <span>Wed</span>
+          <span>Fri</span>
+        </div>
+        <div class="friend-contribution-grid" id="friendContributionGrid"></div>
+      </div>
+    </div>
+
+    <!-- Monthly Stats Section (Hidden by default) -->
+    <div id="monthlyStats" class="monthly-stats" style="display: none;">
+      <h3>Monthly Summary</h3>
+      <div class="monthly-stats-grid" id="monthlyStatsGrid">
+        <!-- Monthly stats will be populated by JavaScript -->
+      </div>
+    </div>
   </main>
 
   <div id="tooltip" class="tooltip" role="tooltip" aria-hidden="true"></div>
 
   <script src="{{ url_for('static', filename='js/time_tracker.js') }}"></script>
+  <script>
+    // Initialize the time tracker when the DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeTimeTracker();
+    });
+  </script>
 </body>
 </html>
