@@ -30,6 +30,7 @@ def init_app(flask_app, flask_socketio):
     app = flask_app
     socketio = flask_socketio
     register_routes()
+    register_socketio_events()
 
 def require_login(f):
     @wraps(f)
@@ -241,394 +242,909 @@ def register_routes():
     def api_search_users_chat():
         """API endpoint to search users for chat"""
         try:
+
             query = request.args.get('q', '').strip()
+
             
+
             if not query:
+
                 # Return all followed users if no query
+
                 return api_get_friends()
+
             
+
             # Search for users by username, first name, or last name
+
             users = User.query.filter(
+
                 (User.username.ilike(f'%{query}%')) |
+
                 (User.first_name.ilike(f'%{query}%')) |
+
                 (User.last_name.ilike(f'%{query}%'))
+
             ).limit(20).all()
+
             
+
             user_list = []
+
             for user in users:
+
                 user_list.append({
+
                     'id': user.id,
+
                     'name': user.full_name,
+
                     'username': user.username,
+
                     'image': user.profile_image_url
+
                 })
+
             
+
             return jsonify(user_list)
+
         except Exception as e:
+
             print(f"Error searching users: {e}")
+
             return jsonify([]), 500
+
+
 
     @app.route('/api/friends')
+
     @require_login
+
     def api_get_friends():
+
         """API endpoint to get user's friends and followed users"""
+
         try:
+
             # Get all users that the current user is following (using Follower model)
+
             followed_users = db.session.query(User).join(
+
                 Follower, 
+
                 (Follower.user_id == User.id) & (Follower.follower_id == current_user.id)
+
             ).all()
+
             
+
             # Also get users who are following the current user (for mutual follows)
+
             followers = db.session.query(User).join(
+
                 Follower,
+
                 (Follower.follower_id == User.id) & (Follower.user_id == current_user.id)
+
             ).all()
+
             
+
             # Combine both lists and remove duplicates
+
             all_users = {}
+
             for user in followed_users:
+
                 all_users[user.id] = user
+
                 
+
             for user in followers:
+
                 all_users[user.id] = user
+
             
+
             # Convert to list format
+
             user_list = []
+
             for user in all_users.values():
+
                 user_list.append({
+
                     'id': user.id,
+
                     'name': user.full_name,
+
                     'username': user.username,
+
                     'image': user.profile_image_url
+
                 })
+
             
+
             return jsonify(user_list)
+
         except Exception as e:
+
             print(f"Error getting friends: {e}")
+
             return jsonify([]), 500
+
+
 
     @app.route('/api/post/<int:post_id>/like', methods=['POST'])
+
     @require_login
+
     def like_post(post_id):
+
         """API endpoint to like a post"""
+
         try:
+
             # Get the post
+
             post = Post.query.get(post_id)
+
             if not post:
+
                 return jsonify({'success': False, 'error': 'Post not found'}), 404
+
             
+
             # Check if user has already liked this post
+
             existing_like = PostLike.query.filter_by(post_id=post_id, user_id=current_user.id).first()
+
             if existing_like:
+
                 # Unlike the post
+
                 db.session.delete(existing_like)
+
                 db.session.commit()
+
                 
+
                 # Create notification for post owner (unlike)
+
                 if post.user_id != current_user.id:
+
                     # Check if there's an existing like notification and remove it
+
                     existing_notification = Notification.query.filter_by(
+
                         user_id=post.user_id,
+
                         from_user_id=current_user.id,
+
                         type='like',
+
                         message=f"{current_user.full_name} liked your post"
+
                     ).first()
+
                     if existing_notification:
+
                         db.session.delete(existing_notification)
+
                         db.session.commit()
+
                 
+
                 return jsonify({'success': True, 'message': 'Post unliked', 'liked': False})
+
             
+
             # Like the post
+
             like = PostLike()
+
             like.post_id = post_id
+
             like.user_id = current_user.id
+
             db.session.add(like)
+
             
+
             # Create notification for post owner (like)
+
             if post.user_id != current_user.id:
+
                 notification = Notification()
+
                 notification.user_id = post.user_id
+
                 notification.message = f"{current_user.full_name} liked your post"
+
                 notification.type = 'like'
+
                 notification.from_user_id = current_user.id
+
                 db.session.add(notification)
+
                 
+
                 # Emit notification to post owner with post ID
+
                 socketio.emit('new_notification', {
+
                     'user_id': post.user_id,
+
                     'message': f"{current_user.full_name} liked your post",
+
                     'type': 'like',
+
                     'post_id': post_id
+
                 }, room=f'user_{post.user_id}')
+
             
+
             db.session.commit()
+
             
+
             return jsonify({'success': True, 'message': 'Post liked', 'liked': True})
+
                 
+
         except Exception as e:
+
             db.session.rollback()
+
             print(f"Error liking post: {e}")
+
             return jsonify({'success': False, 'error': 'Failed to like post'}), 500
 
+
+
     @app.route('/api/post/<int:post_id>/comment', methods=['POST'])
+
     @require_login
+
     def comment_on_post(post_id):
+
         """API endpoint to comment on a post"""
+
         try:
+
             data = request.get_json()
+
             content = data.get('content', '').strip()
+
             
+
             if not content:
+
                 return jsonify({'success': False, 'error': 'Comment content is required'}), 400
+
             
+
             # Get the post
+
             post = Post.query.get(post_id)
+
             if not post:
+
                 return jsonify({'success': False, 'error': 'Post not found'}), 404
+
             
+
             # Create comment
+
             comment = Comment()
+
             comment.post_id = post_id
+
             comment.user_id = current_user.id
+
             comment.content = content
+
             db.session.add(comment)
+
             
+
             # Create notification for post owner (comment)
+
             if post.user_id != current_user.id:
+
                 notification = Notification()
+
                 notification.user_id = post.user_id
+
                 notification.message = f"{current_user.full_name} commented on your post: '{content[:50]}{'...' if len(content) > 50 else ''}"
+
                 notification.type = 'comment'
+
                 notification.from_user_id = current_user.id
+
                 db.session.add(notification)
+
                 
+
                 # Emit notification to post owner with post ID
+
                 socketio.emit('new_notification', {
+
                     'user_id': post.user_id,
+
                     'message': f"{current_user.full_name} commented on your post: '{content[:50]}{'...' if len(content) > 50 else ''}",
+
                     'type': 'comment',
+
                     'post_id': post_id
+
                 }, room=f'user_{post.user_id}')
+
             
+
             db.session.commit()
+
             
+
             return jsonify({'success': True, 'message': 'Comment added'})
+
                 
+
         except Exception as e:
+
             db.session.rollback()
+
             print(f"Error commenting on post: {e}")
+
             return jsonify({'success': False, 'error': 'Failed to comment on post'}), 500
 
+
+
     @app.route('/api/comment/<int:comment_id>/reply', methods=['POST'])
+
     @require_login
+
     def reply_to_comment(comment_id):
+
         """API endpoint to reply to a comment"""
+
         try:
+
             data = request.get_json()
+
             content = data.get('content', '').strip()
+
             
+
             if not content:
+
                 return jsonify({'success': False, 'error': 'Reply content is required'}), 400
+
             
+
             # Get the comment
+
             comment = Comment.query.get(comment_id)
+
             if not comment:
+
                 return jsonify({'success': False, 'error': 'Comment not found'}), 404
+
             
+
             # Get the post
+
             post = Post.query.get(comment.post_id)
+
             if not post:
+
                 return jsonify({'success': False, 'error': 'Post not found'}), 404
+
             
+
             # Create reply (as a new comment)
+
             reply = Comment()
+
             reply.post_id = comment.post_id
+
             reply.user_id = current_user.id
+
             reply.content = content
+
             db.session.add(reply)
+
             
+
             # Create notification for comment owner (reply)
+
             if comment.user_id != current_user.id:
+
                 notification = Notification()
+
                 notification.user_id = comment.user_id
+
                 notification.message = f"{current_user.full_name} replied to your comment: '{content[:50]}{'...' if len(content) > 50 else ''}"
+
                 notification.type = 'comment_reply'
+
                 notification.from_user_id = current_user.id
+
                 db.session.add(notification)
+
                 
+
                 # Emit notification to comment owner with post ID
+
                 socketio.emit('new_notification', {
+
                     'user_id': comment.user_id,
+
                     'message': f"{current_user.full_name} replied to your comment: '{content[:50]}{'...' if len(content) > 50 else ''}",
+
                     'type': 'comment_reply',
+
                     'post_id': comment.post_id
+
                 }, room=f'user_{comment.user_id}')
+
             
+
             db.session.commit()
+
             
+
             return jsonify({'success': True, 'message': 'Reply added'})
+
                 
+
         except Exception as e:
+
             db.session.rollback()
+
             print(f"Error replying to comment: {e}")
+
             return jsonify({'success': False, 'error': 'Failed to reply to comment'}), 500
 
+
+
     @app.route('/api/messages/<user_id>')
+
     @require_login
+
     def api_get_messages(user_id):
+
         """API endpoint to get messages with a specific user"""
+
         try:
+
             # Get messages between current user and specified user
+
             messages = Message.query.filter(
+
                 ((Message.sender_id == current_user.id) & (Message.receiver_id == user_id)) |
+
                 ((Message.sender_id == user_id) & (Message.receiver_id == current_user.id))
+
             ).order_by(Message.created_at.asc()).all()
+
             
+
             message_list = []
+
             for message in messages:
+
                 # Get sender info
+
                 sender = User.query.get(message.sender_id)
+
                 message_list.append({
+
                     'id': message.id,
+
                     'sender_id': message.sender_id,
+
                     'receiver_id': message.receiver_id,
+
                     'content': message.content,
+
                     'code_snippet': message.code_snippet,
+
                     'file_attachment': message.file_attachment,
+
                     'file_type': message.file_type,
+
                     'created_at': message.created_at.isoformat(),
+
                     'sender_image': sender.profile_image_url if sender else None
+
                 })
+
             
+
             return jsonify(message_list)
+
         except Exception as e:
+
             print(f"Error getting messages: {e}")
+
             return jsonify([]), 500
 
+
+
     @app.route('/api/send-message', methods=['POST'])
+
     @require_login
+
     def api_send_message():
+
         """API endpoint to send a message with optional file attachment"""
+
         try:
+
             # Handle both JSON and form data
+
             if request.is_json:
+
                 data = request.get_json()
+
                 receiver_id = data.get('receiver_id')
+
                 content = data.get('content', '').strip()
+
                 code_snippet = data.get('code_snippet')
+
                 file_attachment = data.get('file_attachment')
+
                 file_type = data.get('file_type')
+
             else:
+
                 receiver_id = request.form.get('receiver_id')
+
                 content = request.form.get('content', '').strip()
+
                 code_snippet = request.form.get('code_snippet')
+
                 file_attachment = request.form.get('file_attachment')
+
                 file_type = request.form.get('file_type')
+
             
+
             if not receiver_id:
+
                 return jsonify({'success': False, 'error': 'Receiver is required'}), 400
+
             
+
             # Check if receiver exists
+
             receiver = User.query.get(receiver_id)
+
             if not receiver:
+
                 return jsonify({'success': False, 'error': 'Receiver not found'}), 404
+
             
+
             # Check if user is following the receiver or vice versa
+
             is_following = Follower.query.filter_by(
+
                 user_id=receiver_id, 
+
                 follower_id=current_user.id
+
             ).first() is not None
+
             
+
             is_followed_by = Follower.query.filter_by(
+
                 user_id=current_user.id, 
+
                 follower_id=receiver_id
+
             ).first() is not None
+
             
+
             # Users can chat if they follow each other (mutual follow) or if one follows the other
+
             if not (is_following or is_followed_by):
+
                 return jsonify({'success': False, 'error': 'You need to follow this user to chat'}), 403
+
             
+
             # Create new message
+
             message = Message()
+
             message.sender_id = current_user.id
+
             message.receiver_id = receiver_id
+
             message.content = content if content else ''
+
             message.code_snippet = code_snippet
+
             message.file_attachment = file_attachment
+
             message.file_type = file_type
+
             
+
             db.session.add(message)
+
             db.session.commit()
+
             
+
             # Prepare message data for Socket.IO
+
             message_data = {
+
                 'id': message.id,
+
                 'sender_id': current_user.id,
+
                 'receiver_id': receiver_id,
+
                 'content': content,
+
                 'message': content,  # Keep both for compatibility
+
                 'code_snippet': code_snippet,
+
                 'file_attachment': file_attachment,
+
                 'file_type': file_type,
+
                 'timestamp': message.created_at.isoformat(),
+
                 'sender_name': current_user.full_name,
+
                 'sender_image': current_user.profile_image_url
+
             }
+
             
+
             # Emit message to BOTH sender and receiver's chat rooms for instant display
+
             socketio.emit('receive_message', message_data, room=f'chat_{receiver_id}')
+
             socketio.emit('receive_message', message_data, room=f'chat_{current_user.id}')
+
             
+
             return jsonify({'success': True, 'message_id': message.id})
+
         except Exception as e:
+
             db.session.rollback()
+
             print(f"Error sending message: {e}")
+
             return jsonify({'success': False, 'error': 'Failed to send message'}), 500
 
+
+
     @app.route('/api/upload-file', methods=['POST'])
+
     @require_login
+
     def api_upload_file():
+
         """API endpoint to upload files for chat"""
+
         try:
+
             import uuid
+
             if 'file' not in request.files:
+
                 return jsonify({'success': False, 'error': 'No file provided'}), 400
+
             
+
             file = request.files['file']
+
             if file.filename == '':
+
                 return jsonify({'success': False, 'error': 'No file selected'}), 400
+
             
+
             if file:
+
                 # Generate unique filename
+
                 filename = str(uuid.uuid4()) + '_' + file.filename
+
                 file_path = os.path.join('static', 'uploads', filename)
+
                 
+
                 # Ensure upload directory exists
+
                 os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
                 
+
                 # Save file
+
                 file.save(file_path)
+
                 
+
                 # Determine file type
+
                 file_type = 'other'
+
                 if file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+
                     file_type = 'image'
+
                 elif file.filename.lower().endswith(('.mp4', '.avi', '.mov', '.wmv')):
+
                     file_type = 'video'
+
                 elif file.filename.lower().endswith('.pdf'):
+
                     file_type = 'pdf'
+
                 elif file.filename.lower().endswith(('.doc', '.docx')):
+
                     file_type = 'document'
+
                 
+
                 return jsonify({
+
                     'success': True,
+
                     'file_path': f'/static/uploads/{filename}',
+
                     'file_type': file_type
+
                 })
+
             
+
             return jsonify({'success': False, 'error': 'Failed to upload file'}), 500
+
+
         except Exception as e:
             print(f"Error uploading file: {e}")
             return jsonify({'success': False, 'error': 'Failed to upload file'}), 500
+
+    @app.route('/api/user-status/<user_id>')
+    @require_login
+    def api_user_status(user_id):
+        """API endpoint to get user's online status"""
+        try:
+            user = User.query.get(user_id)
+            if not user:
+                return jsonify({'success': False, 'error': 'User not found'}), 404
+            
+            # Format last seen time in 12-hour format with AM/PM
+            last_seen_formatted = None
+            if user.last_seen:
+                # Convert UTC to local time (IST) and format as 12-hour with AM/PM
+                from datetime import timezone, timedelta
+                # Assuming IST (UTC+5:30)
+                ist_offset = timedelta(hours=5, minutes=30)
+                last_seen_ist = user.last_seen + ist_offset
+                last_seen_formatted = last_seen_ist.strftime('%I:%M %p')
+            
+            return jsonify({
+                'success': True,
+                'is_online': user.is_online,
+                'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+                'last_seen_formatted': last_seen_formatted
+            })
+        except Exception as e:
+            print(f"Error getting user status: {e}")
+            return jsonify({'success': False, 'error': 'Failed to get user status'}), 500
+
+def register_socketio_events():
+    """Register Socket.IO event handlers"""
+    
+    @socketio.on('join')
+    def on_join(data):
+        """Handle user joining a chat room"""
+        room = data.get('room')
+        if room:
+            join_room(room)
+            print(f"User joined room: {room}")
+    
+    @socketio.on('chat_window_opened')
+    def on_chat_window_opened(data):
+        """Handle user opening chat window - mark as online"""
+        if current_user.is_authenticated:
+            # Log the status update request
+            page = data.get('page', 'chat')
+            status = data.get('status', 'online')
+            print(f"Received presence update from user {current_user.id}: status={status}, page={page}")
+            
+            # Mark user as online
+            current_user.is_online = True
+            current_user.last_seen = datetime.utcnow()
+            current_user.last_active = datetime.utcnow()
+            db.session.commit()
+            
+            print(f"User {current_user.id} ({current_user.username}) is now ONLINE")
+            
+            # Emit presence update to all connected clients
+            socketio.emit('user_presence_update', {
+                'user_id': current_user.id,
+                'is_online': True,
+                'last_seen': current_user.last_seen.isoformat()
+            }, broadcast=True)
+            
+            print(f"Broadcasted ONLINE status for user {current_user.id}")
+    
+    @socketio.on('chat_window_closed')
+    def on_chat_window_closed(data):
+        """Handle user closing chat window - mark as offline"""
+        if current_user.is_authenticated:
+            # Log the status update request
+            page = data.get('page', 'unknown')
+            status = data.get('status', 'offline')
+            print(f"Received presence update from user {current_user.id}: status={status}, page={page}")
+
+            # Mark user as offline
+            current_user.is_online = False
+            current_user.last_seen = datetime.utcnow()
+            db.session.commit()
+            
+            print(f"User {current_user.id} ({current_user.username}) is now OFFLINE")
+            
+            # Emit presence update to all connected clients
+            socketio.emit('user_presence_update', {
+                'user_id': current_user.id,
+                'is_online': False,
+                'last_seen': current_user.last_seen.isoformat()
+            }, broadcast=True)
+            
+            print(f"Broadcasted OFFLINE status for user {current_user.id}")
+    
+    @socketio.on('user_activity')
+    def on_user_activity(data):
+        """Handle user activity events for presence tracking"""
+        if current_user.is_authenticated:
+            # Update user's last active timestamp (keep online status)
+            current_user.last_active = datetime.utcnow()
+            current_user.last_seen = datetime.utcnow()
+            if not current_user.is_online:
+                current_user.is_online = True
+            db.session.commit()
+            
+            # Emit presence update to all connected clients
+            socketio.emit('user_presence_update', {
+                'user_id': current_user.id,
+                'is_online': True,
+                'last_seen': current_user.last_seen.isoformat()
+            }, broadcast=True)
+    
+    @socketio.on('disconnect')
+    def on_disconnect():
+        """Handle user disconnect"""
+        if current_user.is_authenticated:
+            # Mark user as offline and update last seen timestamp
+            current_user.is_online = False
+            current_user.last_seen = datetime.utcnow()
+            db.session.commit()
+            
+            # Emit presence update to all connected clients
+            socketio.emit('user_presence_update', {
+                'user_id': current_user.id,
+                'is_online': False,
+                'last_seen': current_user.last_seen.isoformat()
+            }, broadcast=True)

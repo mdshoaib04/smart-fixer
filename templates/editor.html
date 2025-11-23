@@ -381,11 +381,11 @@
 
                 // IMPORTANT: Mark user as offline for chat since they're on editor page (not chat page)
                 // This ensures users only show as "online" when actually on the chat page
-                socket.emit('chat_window_closed', {});
+                socket.emit('chat_window_closed', { status: 'offline', page: 'editor' });
 
                 // Also emit on socket reconnection
                 socket.on('connect', function () {
-                    socket.emit('chat_window_closed', {});
+                    socket.emit('chat_window_closed', { status: 'offline', page: 'editor' });
                 });
             }
         });
@@ -406,7 +406,7 @@
         // Keep user marked as offline when on this page
         window.addEventListener('focus', function () {
             if (socket && socket.connected) {
-                socket.emit('chat_window_closed', {});
+                socket.emit('chat_window_closed', { status: 'offline', page: 'editor' });
             }
         });
     </script>

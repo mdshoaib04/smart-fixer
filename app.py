@@ -258,19 +258,19 @@ if __name__ == '__main__':
     local_ip = get_local_ip()
     
     print("\n" + "="*60)
-    print("🚀 SMARTFIXER CODE REVIEWER STARTING...")
+    print("SMARTFIXER CODE REVIEWER STARTING...")
     print("="*60)
-    print("📡 Server Status: Starting...")
-    print(f"🌐 Main URL: http://localhost:{port}")
-    print(f"🔗 Alternative URL: http://127.0.0.1:{port}")
-    print(f"💻 Local Network: http://{local_ip}:{port}")
+    print("Server Status: Starting...")
+    print(f"Main URL: http://localhost:{port}")
+    print(f"Alternative URL: http://127.0.0.1:{port}")
+    print(f"Local Network: http://{local_ip}:{port}")
     print("="*60)
-    print("✅ Click on any URL above to access your SmartFixer!")
-    print("🛑 Press Ctrl+C to stop the server")
+    print("Click on any URL above to access your SmartFixer!")
+    print("Press Ctrl+C to stop the server")
     print("="*60 + "\n")
     
     # Use socketio.run instead of app.run for WebSocket support
-    socketio.run(app, debug=True, host='0.0.0.0', port=port)
+    socketio.run(app, debug=True, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
 
 
 

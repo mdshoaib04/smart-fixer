@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,7 +19,7 @@
             margin: 1rem;
             overflow: hidden;
         }
-        
+
         .friend-selection-header {
             display: flex;
             justify-content: space-between;
@@ -26,13 +27,13 @@
             padding: 1rem;
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .friend-selection-header h2 {
             margin: 0;
             color: var(--text-color);
             font-size: 1.2rem;
         }
-        
+
         .close-friend-selection {
             background: none;
             border: none;
@@ -41,13 +42,13 @@
             color: var(--text-color);
             padding: 0.5rem;
         }
-        
+
         .friend-list {
             flex: 1;
             overflow-y: auto;
             padding: 1rem;
         }
-        
+
         .friend-item {
             display: flex;
             align-items: center;
@@ -57,11 +58,11 @@
             transition: background-color 0.2s;
             margin-bottom: 0.5rem;
         }
-        
+
         .friend-item:hover {
             background-color: var(--hover-bg);
         }
-        
+
         .friend-avatar {
             width: 40px;
             height: 40px;
@@ -69,40 +70,40 @@
             object-fit: cover;
             margin-right: 1rem;
         }
-        
+
         .friend-info {
             flex: 1;
         }
-        
+
         .friend-name {
             font-weight: 600;
             color: var(--text-color);
         }
-        
+
         .friend-username {
             font-size: 0.8rem;
             color: #888;
         }
-        
+
         .no-friends {
             text-align: center;
             padding: 2rem;
             color: #888;
         }
-        
+
         /* Existing styles */
         .chat-page-container {
             height: calc(100vh - 60px);
             padding: 1rem;
             box-sizing: border-box;
         }
-        
+
         .chat-layout {
             display: flex;
             height: 100%;
             gap: 1rem;
         }
-        
+
         .chat-sidebar {
             width: 300px;
             background: var(--card-bg);
@@ -112,12 +113,12 @@
             flex-direction: column;
             overflow: hidden;
         }
-        
+
         .chat-search {
             padding: 1rem;
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .search-input {
             width: 100%;
             padding: 0.5rem;
@@ -127,12 +128,12 @@
             color: var(--text-color);
             box-sizing: border-box;
         }
-        
+
         .chat-list {
             flex: 1;
             overflow-y: auto;
         }
-        
+
         .chat-item {
             display: flex;
             align-items: center;
@@ -141,11 +142,12 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
-        
-        .chat-item:hover, .chat-item.active {
+
+        .chat-item:hover,
+        .chat-item.active {
             background-color: var(--hover-bg);
         }
-        
+
         .chat-avatar {
             width: 40px;
             height: 40px;
@@ -153,24 +155,24 @@
             object-fit: cover;
             margin-right: 1rem;
         }
-        
+
         .chat-info {
             flex: 1;
             min-width: 0;
         }
-        
+
         .chat-name {
             font-weight: 600;
             color: var(--text-color);
             margin-bottom: 0.25rem;
         }
-        
+
         .chat-username {
             font-size: 0.8rem;
             color: #888;
             margin-bottom: 0.25rem;
         }
-        
+
         .chat-last-message {
             font-size: 0.85rem;
             color: #888;
@@ -178,12 +180,12 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        
+
         .chat-time {
             font-size: 0.75rem;
             color: #888;
         }
-        
+
         .online-status-indicator {
             width: 10px;
             height: 10px;
@@ -191,15 +193,15 @@
             background-color: #ccc;
             margin-left: 0.5rem;
         }
-        
+
         .online-status-indicator.online {
             background-color: #4CAF50;
         }
-        
+
         .online-status-indicator.offline {
             background-color: #ccc;
         }
-        
+
         .chat-main {
             flex: 1;
             display: flex;
@@ -209,14 +211,14 @@
             box-shadow: var(--shadow);
             overflow: hidden;
         }
-        
+
         .chat-header-info {
             display: flex;
             align-items: center;
             padding: 1rem;
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .current-chat-avatar {
             width: 32px;
             height: 32px;
@@ -224,26 +226,26 @@
             object-fit: cover;
             margin-right: 1rem;
         }
-        
+
         .current-chat-info {
             flex: 1;
         }
-        
+
         .current-chat-name {
             font-weight: 600;
             color: var(--text-color);
         }
-        
+
         .current-chat-status {
             font-size: 0.8rem;
             color: #888;
         }
-        
+
         .chat-actions {
             display: flex;
             gap: 0.5rem;
         }
-        
+
         .chat-action-btn {
             background: none;
             border: none;
@@ -253,11 +255,11 @@
             transition: background-color 0.2s;
             color: var(--text-color);
         }
-        
+
         .chat-action-btn:hover {
             background-color: var(--hover-bg);
         }
-        
+
         .chat-messages {
             flex: 1;
             padding: 1rem;
@@ -265,21 +267,21 @@
             display: flex;
             flex-direction: column;
         }
-        
+
         .message {
             display: flex;
             margin-bottom: 1rem;
             max-width: 80%;
         }
-        
+
         .message.sent {
             align-self: flex-end;
         }
-        
+
         .message.received {
             align-self: flex-start;
         }
-        
+
         .message-avatar {
             width: 32px;
             height: 32px;
@@ -287,45 +289,47 @@
             object-fit: cover;
             margin-right: 0.5rem;
         }
-        
+
         .message-content {
             display: flex;
             flex-direction: column;
         }
-        
+
         .message-text {
             padding: 0.5rem 1rem;
             border-radius: 18px;
             word-wrap: break-word;
         }
-        
+
         .message.sent .message-text {
             background-color: #007bff;
             color: white;
             border-bottom-right-radius: 4px;
         }
-        
+
         .message.received .message-text {
             background-color: #f1f1f1;
             color: #333;
             border-bottom-left-radius: 4px;
         }
-        
+
         .message-time {
             font-size: 0.7rem;
             color: #888;
             margin-top: 0.25rem;
             align-self: flex-end;
         }
-        
+
         .chat-input-container {
             display: flex;
             align-items: center;
             padding: 1rem;
             border-top: 1px solid var(--border-color);
         }
-        
-        .attach-btn, .code-btn, .send-btn {
+
+        .attach-btn,
+        .code-btn,
+        .send-btn {
             background: none;
             border: none;
             cursor: pointer;
@@ -334,11 +338,13 @@
             transition: background-color 0.2s;
             color: var(--text-color);
         }
-        
-        .attach-btn:hover, .code-btn:hover, .send-btn:hover {
+
+        .attach-btn:hover,
+        .code-btn:hover,
+        .send-btn:hover {
             background-color: var(--hover-bg);
         }
-        
+
         #chatInput {
             flex: 1;
             padding: 0.75rem;
@@ -348,51 +354,51 @@
             color: var(--text-color);
             margin: 0 0.5rem;
         }
-        
+
         /* Dark mode styles */
         [data-theme="dark"] .message.received .message-text {
             background-color: #444;
             color: white;
         }
-        
+
         [data-theme="dark"] .search-input,
         [data-theme="dark"] #chatInput {
             background: #333;
             border-color: #555;
         }
-        
+
         [data-theme="dark"] .friend-item:hover,
         [data-theme="dark"] .chat-item:hover,
         [data-theme="dark"] .chat-item.active {
             background-color: #333;
         }
-        
+
         [data-theme="dark"] .attach-btn:hover,
         [data-theme="dark"] .code-btn:hover,
         [data-theme="dark"] .send-btn:hover,
         [data-theme="dark"] .chat-action-btn:hover {
             background-color: #333;
         }
-        
+
         [data-theme="dark"] .friend-selection-container,
         [data-theme="dark"] .chat-sidebar,
         [data-theme="dark"] .chat-main {
             background: #222;
         }
-        
+
         [data-theme="dark"] .friend-selection-header,
         [data-theme="dark"] .chat-search,
         [data-theme="dark"] .chat-header-info,
         [data-theme="dark"] .chat-input-container {
             border-color: #444;
         }
-        
+
         .no-chats {
             text-align: center;
             padding: 2rem;
             color: #888;
         }
-        
+
         .new-chat-link {
             background: none;
             border: none;
@@ -401,45 +407,83 @@
             text-decoration: underline;
             font-size: 1rem;
         }
-        
+
         .new-chat-link:hover {
             color: #0056b3;
         }
+
+        /* Image Lightbox */
+        .image-lightbox {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+
+        .lightbox-close:hover {
+            color: #bbb;
+        }
     </style>
 </head>
+
 <body>
     <div class="nav-bar">
         <div class="nav-left">
             <button class="back-btn" onclick="goBack()" title="Back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5"/>
-                    <path d="M12 19l-7-7 7-7"/>
+                    <path d="M19 12H5" />
+                    <path d="M12 19l-7-7 7-7" />
                 </svg>
             </button>
             <div class="brand-logo">Messages</div>
         </div>
-        
+
         <div class="nav-right">
             <div class="theme-toggle tooltip" data-tooltip="Theme" onclick="toggleTheme()" title="Theme">
                 <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
-                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                    <circle cx="12" cy="12" r="5"/>
-                    <line x1="12" y1="1" x2="12" y2="3"/>
-                    <line x1="12" y1="21" x2="12" y2="23"/>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                    <line x1="1" y1="12" x2="3" y2="12"/>
-                    <line x1="21" y1="12" x2="23" y2="12"/>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" style="display: none;">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
             </div>
-            
+
             <button class="new-chat-btn" onclick="startNewChat()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 5v14M5 12h14"/>
+                    <path d="M12 5v14M5 12h14" />
                 </svg>
                 New Chat
             </button>
@@ -452,12 +496,12 @@
                 <div class="chat-search">
                     <input type="text" placeholder="Search users..." class="search-input" oninput="searchUsers()">
                 </div>
-                
+
                 <div class="chat-list" id="chatList">
                     <!-- Chat items will be loaded dynamically -->
                 </div>
             </div>
-            
+
             <!-- Friend Selection Interface -->
             <div class="friend-selection-container" style="display: none;">
                 <div class="friend-selection-header">
@@ -468,7 +512,7 @@
                     <!-- Friends will be loaded dynamically -->
                 </div>
             </div>
-            
+
             <div class="chat-main">
                 <div class="chat-header-info" id="chatHeaderInfo">
                     <img src="https://via.placeholder.com/32" alt="Profile" class="current-chat-avatar">
@@ -478,40 +522,48 @@
                     </div>
                     <div class="chat-actions">
                         <button class="chat-action-btn" title="Video Call" onclick="startVideoCall()">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="23 7 16 12 23 17 23 7"/>
-                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polygon points="23 7 16 12 23 17 23 7" />
+                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                             </svg>
                         </button>
                         <button class="chat-action-btn" title="Voice Call" onclick="startVoiceCall()">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path
+                                    d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                             </svg>
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="chat-messages" id="chatMessages">
                     <!-- Messages will be loaded dynamically -->
                 </div>
-                
+
                 <div class="chat-input-container">
                     <button class="attach-btn" title="Attach File" onclick="attachFile()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path
+                                d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                         </svg>
                     </button>
-                    <input type="text" id="chatInput" placeholder="Type a message..." onkeypress="handleChatEnter(event)">
+                    <input type="text" id="chatInput" placeholder="Type a message..."
+                        onkeypress="handleChatEnter(event)">
                     <button class="code-btn" title="Share Code" onclick="shareCodeInChat()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="16,18 22,12 16,6"/>
-                            <polyline points="8,6 2,12 8,18"/>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="16,18 22,12 16,6" />
+                            <polyline points="8,6 2,12 8,18" />
                         </svg>
                     </button>
                     <button class="send-btn" onclick="sendMessage()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="22" y1="2" x2="11" y2="13"/>
-                            <polygon points="22,2 15,22 11,13 2,9 22,2"/>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13" />
+                            <polygon points="22,2 15,22 11,13 2,9 22,2" />
                         </svg>
                     </button>
                     <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)">
@@ -528,7 +580,7 @@
         let allChats = [];
         let chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '{}'); // Store chat history
         let searchTimeout;
-        
+
         function updateNavigationHistory() {
             const currentPath = window.location.pathname;
             if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
@@ -539,19 +591,19 @@
                 sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
             }
         }
-        
+
         function goBack() {
             // Go back to the editor page
             window.location.href = '/editor';
         }
-        
+
         function toggleTheme() {
             const currentTheme = document.body.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
+
             document.body.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            
+
             if (newTheme === 'dark') {
                 document.querySelector('.moon').style.display = 'none';
                 document.querySelector('.sun').style.display = 'block';
@@ -570,7 +622,7 @@
             // Hide chat interface and show friend selection
             document.querySelector('.chat-main').style.display = 'none';
             document.querySelector('.friend-selection-container').style.display = 'block';
-            
+
             // Load friends for selection
             loadFriendsForSelection();
         }
@@ -611,10 +663,10 @@
         function selectFriend(userId) {
             // Hide friend selection and show chat
             hideFriendSelection();
-            
+
             // Open chat with selected friend
             openChat(userId);
-            
+
             // Update chat history
             chatHistory.lastChat = userId;
             localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
@@ -626,7 +678,7 @@
                 const friends = await response.json();
                 allChats = friends;
                 displayChats(friends);
-                
+
                 // Auto-select last chat or show friend selection for first-time users
                 autoSelectChat(friends);
             } catch (error) {
@@ -688,7 +740,7 @@
 
         function searchChats() {
             const searchTerm = document.querySelector('.search-input').value.toLowerCase();
-            const filteredChats = allChats.filter(chat => 
+            const filteredChats = allChats.filter(chat =>
                 chat.name.toLowerCase().includes(searchTerm)
             );
             displayChats(filteredChats);
@@ -697,7 +749,7 @@
         async function openChat(userId) {
             // Remove active class from all chat items
             document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
-            
+
             // Find and activate the chat item for this user
             const chatItem = document.querySelector(`.chat-info[onclick*="'${userId}'"]`);
             if (chatItem) {
@@ -707,12 +759,12 @@
                     parentItem.classList.add('active');
                 }
             }
-            
+
             currentChatUser = userId;
-            
+
             // Join the chat room
-            socket.emit('join', {room: `chat_${userId}`});
-            
+            socket.emit('join', { room: `chat_${userId}` });
+
             // Update chat header info
             const friend = allChats.find(f => f.id === userId);
             if (friend) {
@@ -720,10 +772,10 @@
                 document.querySelector('.current-chat-avatar').src = friend.image || 'https://via.placeholder.com/32';
                 document.querySelector('.current-chat-status').textContent = 'Online';
             }
-            
+
             // Load chat messages
             await loadChatMessages(userId);
-            
+
             // Update chat history
             chatHistory.lastChat = userId;
             localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
@@ -743,11 +795,11 @@
             const chatMessages = document.getElementById('chatMessages');
             chatMessages.innerHTML = messages.map(msg => {
                 let messageContent = '';
-                
+
                 // Handle file attachments
                 if (msg.file_attachment) {
                     if (msg.file_type === 'image') {
-                        messageContent = `<img src="${msg.file_attachment}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;">`;
+                        messageContent = `<img src="${msg.file_attachment}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" onclick="openImageLightbox('${msg.file_attachment}')">`;
                     } else if (msg.file_type === 'video') {
                         messageContent = `<video controls style="max-width: 300px; max-height: 300px; border-radius: 8px;">
                             <source src="${msg.file_attachment}" type="video/mp4">
@@ -767,7 +819,7 @@
                 } else {
                     messageContent = msg.content || '';
                 }
-                
+
                 return `
                     <div class="message ${msg.sender_id === '{{ user.id }}' ? 'sent' : 'received'}">
                         ${msg.sender_id !== '{{ user.id }}' ? `<img src="${msg.sender_image || 'https://via.placeholder.com/32'}" alt="Profile" class="message-avatar">` : ''}
@@ -784,13 +836,13 @@
         function displayMessage(data) {
             const chatMessages = document.getElementById('chatMessages');
             const isCurrentUser = data.sender_id === '{{ user.id }}';
-            
+
             let messageContent = '';
-            
+
             // Handle file attachments
             if (data.file_attachment) {
                 if (data.file_type === 'image') {
-                    messageContent = `<img src="${data.file_attachment}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px;">`;
+                    messageContent = `<img src="${data.file_attachment}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" onclick="openImageLightbox('${data.file_attachment}')">`;
                 } else if (data.file_type === 'video') {
                     messageContent = `<video controls style="max-width: 300px; max-height: 300px; border-radius: 8px;">
                         <source src="${data.file_attachment}" type="video/mp4">
@@ -824,7 +876,7 @@
             } else {
                 messageContent = data.message;
             }
-            
+
             const messageElement = document.createElement('div');
             messageElement.className = `message ${isCurrentUser ? 'sent' : 'received'}`;
             messageElement.innerHTML = `
@@ -834,7 +886,7 @@
                     <div class="message-time">${formatTime(data.timestamp)}</div>
                 </div>
             `;
-            
+
             chatMessages.appendChild(messageElement);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
@@ -842,12 +894,12 @@
         function sendMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
-            
+
             if (!currentChatUser) {
                 alert('Please select a chat first.');
                 return;
             }
-            
+
             // If there's a message, send it
             if (message) {
                 // Use the new API endpoint instead of socket emit
@@ -862,23 +914,23 @@
                         code_snippet: null
                     })
                 })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        input.value = '';
-                    } else {
-                        alert('Failed to send message: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error sending message:', error);
-                    alert('Failed to send message. Please try again.');
-                });
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            input.value = '';
+                        } else {
+                            alert('Failed to send message: ' + (data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error sending message:', error);
+                        alert('Failed to send message. Please try again.');
+                    });
             }
         }
 
@@ -891,20 +943,20 @@
         function attachFile() {
             document.getElementById('fileInput').click();
         }
-        
+
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
+
             if (!currentChatUser) {
                 alert('Please select a chat first.');
                 document.getElementById('fileInput').value = ''; // Clear the input
                 return;
             }
-            
+
             const formData = new FormData();
             formData.append('file', file);
-            
+
             // Show uploading message
             const chatMessages = document.getElementById('chatMessages');
             const uploadingMessage = document.createElement('div');
@@ -916,72 +968,72 @@
             `;
             chatMessages.appendChild(uploadingMessage);
             chatMessages.scrollTop = chatMessages.scrollHeight;
-            
+
             // Upload file first
             fetch('/api/upload-file', {
                 method: 'POST',
                 body: formData
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Remove uploading message
-                uploadingMessage.remove();
-                
-                if (data.success) {
-                    // Send message with file attachment
-                    return fetch('/api/send-message', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            receiver_id: currentChatUser,
-                            content: '',
-                            file_attachment: data.file_path,
-                            file_type: data.file_type
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Remove uploading message
+                    uploadingMessage.remove();
+
+                    if (data.success) {
+                        // Send message with file attachment
+                        return fetch('/api/send-message', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                receiver_id: currentChatUser,
+                                content: '',
+                                file_attachment: data.file_path,
+                                file_type: data.file_type
+                            })
                         })
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(sendData => {
-                        if (sendData.success) {
-                            // Clear file input
-                            document.getElementById('fileInput').value = '';
-                        } else {
-                            alert('Failed to send file: ' + (sendData.error || 'Unknown error'));
-                        }
-                    });
-                } else {
-                    alert('Failed to upload file: ' + (data.error || 'Unknown error'));
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Network response was not ok');
+                                }
+                                return response.json();
+                            })
+                            .then(sendData => {
+                                if (sendData.success) {
+                                    // Clear file input
+                                    document.getElementById('fileInput').value = '';
+                                } else {
+                                    alert('Failed to send file: ' + (sendData.error || 'Unknown error'));
+                                }
+                            });
+                    } else {
+                        alert('Failed to upload file: ' + (data.error || 'Unknown error'));
+                        // Clear file input
+                        document.getElementById('fileInput').value = '';
+                    }
+                })
+                .catch(error => {
+                    // Remove uploading message
+                    uploadingMessage.remove();
+                    console.error('Error uploading file:', error);
+                    alert('Failed to upload file. Please try again.');
                     // Clear file input
                     document.getElementById('fileInput').value = '';
-                }
-            })
-            .catch(error => {
-                // Remove uploading message
-                uploadingMessage.remove();
-                console.error('Error uploading file:', error);
-                alert('Failed to upload file. Please try again.');
-                // Clear file input
-                document.getElementById('fileInput').value = '';
-            });
+                });
         }
-        
+
         function shareCodeInChat() {
             if (!currentChatUser) {
                 alert('Please select a chat first.');
                 return;
             }
-            
+
             // Get code from session storage or prompt user
             const code = sessionStorage.getItem('uploadedCode') || '';
             if (code) {
@@ -997,29 +1049,29 @@
                         code_snippet: code
                     })
                 })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        // Clear the input
-                        document.getElementById('chatInput').value = '';
-                    } else {
-                        alert('Failed to share code: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error sharing code:', error);
-                    alert('Failed to share code. Please try again.');
-                });
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // Clear the input
+                            document.getElementById('chatInput').value = '';
+                        } else {
+                            alert('Failed to share code: ' + (data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error sharing code:', error);
+                        alert('Failed to share code. Please try again.');
+                    });
             } else {
                 alert('No code available to share. Please upload or write some code first.');
             }
         }
-        
+
         function startVideoCall() {
             alert('Video call feature will be implemented in a future update.');
         }
@@ -1036,7 +1088,7 @@
 
         function formatTime(timestamp) {
             const date = new Date(timestamp);
-            return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
         // Update friend's online status
@@ -1070,7 +1122,7 @@
         }
 
         // Load theme and initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const theme = localStorage.getItem('theme') || 'light';
             if (theme === 'dark') {
                 document.body.setAttribute('data-theme', 'dark');
@@ -1078,12 +1130,12 @@
                 document.querySelector('.sun').style.display = 'block';
             }
             updateNavigationHistory();
-            
+
             // Initialize Socket.IO
             socket = io();
-            
+
             // Socket event listeners
-            socket.on('receive_message', function(data) {
+            socket.on('receive_message', function (data) {
                 // Check if this message is for the current chat
                 if (currentChatUser && (data.sender_id === currentChatUser || data.receiver_id === currentChatUser)) {
                     displayMessage(data);
@@ -1095,31 +1147,53 @@
             socket.on('user_left', (data) => {
                 console.log(data.user + ' left the chat');
             });
-            
+
             // Listen for user presence updates
-            socket.on('user_presence_update', function(data) {
+            socket.on('user_presence_update', function (data) {
                 updateUserPresenceIndicator(data);
             });
-            
+
             // Listen for new notifications
-            socket.on('new_notification', function(data) {
+            socket.on('new_notification', function (data) {
                 if (data.user_id === '{{ user.id }}') {
                     // Show notification alert
                     alert('You have a new notification!');
                 }
             });
-            
+
             // Join user's personal room for notifications
-            socket.emit('join', {room: `user_{{ user.id }}`});
-            
+            socket.emit('join', { room: `user_{{ user.id }}` });
+
             // Join user's own chat room to receive sent messages in real-time
-            socket.emit('join', {room: `chat_{{ user.id }}`});
-            
-            // Send user activity event to update presence
-            socket.emit('user_activity', {});
-            
+            socket.emit('join', { room: `chat_{{ user.id }}` });
+
+            // Send chat window opened event to update presence
+            socket.emit('chat_window_opened', { status: 'online', page: 'chat' });
+
             // Load chats
             loadChats();
+        });
+
+        // Handle page visibility changes (tab switching)
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                // User switched to another tab - mark as offline
+                if (socket) {
+                    socket.emit('chat_window_closed', { status: 'offline', page: 'hidden_tab' });
+                }
+            } else {
+                // User returned to chat tab - mark as online
+                if (socket) {
+                    socket.emit('chat_window_opened', { status: 'online', page: 'chat' });
+                }
+            }
+        });
+
+        // Handle page unload (closing/navigating away)
+        window.addEventListener('beforeunload', function () {
+            if (socket) {
+                socket.emit('chat_window_closed', { status: 'offline', page: 'navigating_away' });
+            }
         });
 
         // Add function to update user presence indicators
@@ -1131,13 +1205,36 @@
                     statusIndicator.title = 'Online';
                 } else {
                     statusIndicator.className = 'online-status-indicator offline';
-                    if (data.last_active) {
-                        const lastSeen = new Date(data.last_active);
-                        const now = new Date();
-                        const diffMinutes = Math.floor((now - lastSeen) / (1000 * 60));
-                        statusIndicator.title = `Last seen ${diffMinutes} minutes ago`;
+                    if (data.last_seen) {
+                        const lastSeen = new Date(data.last_seen);
+                        // Format as 24-hour HH:mm
+                        const hours = lastSeen.getHours().toString().padStart(2, '0');
+                        const minutes = lastSeen.getMinutes().toString().padStart(2, '0');
+                        statusIndicator.title = `Was online at ${hours}:${minutes}`;
                     } else {
                         statusIndicator.title = 'Offline';
+                    }
+                }
+            }
+
+            // Update chat header if this is the current chat user
+            if (currentChatUser === data.user_id) {
+                const statusElement = document.querySelector('.current-chat-status');
+                if (statusElement) {
+                    if (data.is_online) {
+                        statusElement.textContent = 'Online';
+                        statusElement.style.color = '#4CAF50';
+                    } else {
+                        if (data.last_seen) {
+                            const lastSeen = new Date(data.last_seen);
+                            // Format as 24-hour HH:mm
+                            const hours = lastSeen.getHours().toString().padStart(2, '0');
+                            const minutes = lastSeen.getMinutes().toString().padStart(2, '0');
+                            statusElement.textContent = `Was online at ${hours}:${minutes}`;
+                        } else {
+                            statusElement.textContent = 'Offline';
+                        }
+                        statusElement.style.color = '#888';
                     }
                 }
             }
@@ -1149,7 +1246,7 @@
                 showFriendSelection();
                 return;
             }
-            
+
             // Check if there's a last chat in history
             if (chatHistory.lastChat && friends.some(f => f.id === chatHistory.lastChat)) {
                 // Open the last chat
@@ -1166,6 +1263,26 @@
                 showFriendSelection();
             }
         }
+
+        function openImageLightbox(imageSrc) {
+            const lightbox = document.getElementById('imageLightbox');
+            const lightboxImg = document.getElementById('lightboxImage');
+            lightboxImg.src = imageSrc;
+            lightbox.style.display = 'flex';
+        }
+
+        function closeImageLightbox() {
+            const lightbox = document.getElementById('imageLightbox');
+            lightbox.style.display = 'none';
+            document.getElementById('lightboxImage').src = '';
+        }
     </script>
+
+    <!-- Image Lightbox -->
+    <div id="imageLightbox" class="image-lightbox" onclick="closeImageLightbox()">
+        <button class="lightbox-close" onclick="closeImageLightbox()">&times;</button>
+        <img id="lightboxImage" class="lightbox-content" src="" alt="Full size image" onclick="event.stopPropagation()">
+    </div>
 </body>
+
 </html>
