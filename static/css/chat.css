@@ -123,6 +123,11 @@
     font-weight: 600;
     font-size: 1rem;
     margin-bottom: 0.3rem;
+    color: #333;
+    /* Default to dark for light mode */
+}
+
+[data-theme="dark"] .chat-name {
     color: var(--text-color);
 }
 
@@ -411,16 +416,19 @@
 }
 
 .online-status-indicator.online {
-    background-color: #22c55e; /* Green for online */
+    background-color: #22c55e;
+    /* Green for online */
     box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.3);
 }
 
 .online-status-indicator.offline {
-    background-color: #94a3b8; /* Gray for offline */
+    background-color: #94a3b8;
+    /* Gray for offline */
 }
 
 .online-status-indicator.recently-active {
-    background-color: #f59e0b; /* Amber for recently active */
+    background-color: #f59e0b;
+    /* Amber for recently active */
     box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
 }
 
@@ -429,28 +437,28 @@
     .chat-sidebar {
         width: 280px;
     }
-    
+
     .chat-search {
         padding: 1rem;
     }
-    
+
     .chat-item {
         padding: 1rem;
     }
-    
+
     .chat-header-info {
         padding: 1rem;
     }
-    
+
     .chat-messages {
         padding: 1rem;
         gap: 1rem;
     }
-    
+
     .chat-input-container {
         padding: 1rem;
     }
-    
+
     .message {
         max-width: 90%;
     }
@@ -460,16 +468,17 @@
     .chat-layout {
         flex-direction: column;
     }
-    
+
     .chat-sidebar {
         width: 100%;
         height: 200px;
     }
-    
+
     .chat-main {
         flex: 1;
     }
 }
+
 body.light-mode .attach-btn svg,
 body.light-mode .code-btn svg,
 body.light-mode .send-btn svg {

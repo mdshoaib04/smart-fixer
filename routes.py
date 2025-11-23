@@ -1043,6 +1043,8 @@ def register_routes():
                 last_seen_ist = user.last_seen + ist_offset
                 last_seen_formatted = last_seen_ist.strftime('%I:%M %p')
             
+            print(f"API User Status for {user.id}: online={user.is_online}, last_seen={user.last_seen}")
+
             return jsonify({
                 'success': True,
                 'is_online': user.is_online,

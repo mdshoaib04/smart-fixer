@@ -1,583 +1,23 @@
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat - SmartFixer</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <style>
-        .friend-selection-container {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            background: var(--card-bg);
-            border-radius: 10px;
-            box-shadow: var(--shadow);
-            margin: 1rem;
-            overflow: hidden;
-        }
+import os
 
-        .friend-selection-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
+file_path = r'c:\Users\Admin\OneDrive\Desktop\SmartFixer\templates\chat.html'
 
-        .friend-selection-header h2 {
-            margin: 0;
-            color: var(--text-color);
-            font-size: 1.2rem;
-        }
+# Read the file
+with open(file_path, 'r', encoding='utf-8') as f:
+    content = f.read()
 
-        .close-friend-selection {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--text-color);
-            padding: 0.5rem;
-        }
+# We need to keep the top part (HTML structure) and rewrite the script part
+# Find where the script starts
+script_start = content.find('<script>')
+if script_start == -1:
+    print("Could not find script tag")
+    exit(1)
 
-        .friend-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem;
-        }
+top_part = content[:script_start + 8] # Include <script>
 
-        .friend-item {
-            display: flex;
-            align-items: center;
-            padding: 0.75rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            margin-bottom: 0.5rem;
-        }
-
-        .friend-item:hover {
-            background-color: var(--hover-bg);
-        }
-
-        .friend-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-right: 1rem;
-        }
-
-        .friend-info {
-            flex: 1;
-        }
-
-        .friend-name {
-            font-weight: 600;
-            color: var(--text-color);
-        }
-
-        .friend-username {
-            font-size: 0.8rem;
-            color: #888;
-        }
-
-        .no-friends {
-            text-align: center;
-            padding: 2rem;
-            color: #888;
-        }
-
-        /* Existing styles */
-        .chat-page-container {
-            height: calc(100vh - 60px);
-            padding: 1rem;
-            box-sizing: border-box;
-        }
-
-        .chat-layout {
-            display: flex;
-            height: 100%;
-            gap: 1rem;
-        }
-
-        .chat-sidebar {
-            width: 300px;
-            background: var(--card-bg);
-            border-radius: 10px;
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .chat-search {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 0.5rem;
-            border-radius: 20px;
-            border: 1px solid var(--border-color);
-            background: var(--input-bg);
-            color: var(--text-color);
-            box-sizing: border-box;
-        }
-
-        .chat-list {
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .chat-item {
-            display: flex;
-            align-items: center;
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .chat-item:hover,
-        .chat-item.active {
-            background-color: var(--hover-bg);
-        }
-
-        .chat-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-right: 1rem;
-        }
-
-        .chat-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .chat-name {
-            font-weight: 600;
-            color: #333 !important;
-            /* Darker color for light mode visibility */
-            margin-bottom: 0.25rem;
-        }
-
-        [data-theme="dark"] .chat-name {
-            color: var(--text-color) !important;
-        }
-
-        .chat-username {
-            font-size: 0.8rem;
-            color: #888;
-            margin-bottom: 0.25rem;
-        }
-
-        .chat-last-message {
-            font-size: 0.85rem;
-            color: #888;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .chat-time {
-            font-size: 0.75rem;
-            color: #888;
-        }
-
-        .online-status-indicator {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: #ccc;
-            margin-left: 0.5rem;
-        }
-
-        .online-status-indicator.online {
-            background-color: #4CAF50;
-        }
-
-        .online-status-indicator.offline {
-            background-color: #ccc;
-        }
-
-        .chat-main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: var(--card-bg);
-            border-radius: 10px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-        }
-
-        .chat-header-info {
-            display: flex;
-            align-items: center;
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .current-chat-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-right: 1rem;
-        }
-
-        .current-chat-info {
-            flex: 1;
-        }
-
-        .current-chat-name {
-            font-weight: 600;
-            color: var(--text-color);
-        }
-
-        .current-chat-status {
-            font-size: 0.8rem;
-            color: #888;
-        }
-
-        .chat-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .chat-action-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 50%;
-            transition: background-color 0.2s;
-            color: var(--text-color);
-        }
-
-        .chat-action-btn:hover {
-            background-color: var(--hover-bg);
-        }
-
-        .chat-messages {
-            flex: 1;
-            padding: 1rem;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .message {
-            display: flex;
-            margin-bottom: 1rem;
-            max-width: 80%;
-        }
-
-        .message.sent {
-            align-self: flex-end;
-        }
-
-        .message.received {
-            align-self: flex-start;
-        }
-
-        .message-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-right: 0.5rem;
-        }
-
-        .message-content {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .message-text {
-            padding: 0.5rem 1rem;
-            border-radius: 18px;
-            word-wrap: break-word;
-        }
-
-        .message.sent .message-text {
-            background-color: #007bff;
-            color: white;
-            border-bottom-right-radius: 4px;
-        }
-
-        .message.received .message-text {
-            background-color: #f1f1f1;
-            color: #333;
-            border-bottom-left-radius: 4px;
-        }
-
-        .message-time {
-            font-size: 0.7rem;
-            color: #888;
-            margin-top: 0.25rem;
-            align-self: flex-end;
-        }
-
-        .chat-input-container {
-            display: flex;
-            align-items: center;
-            padding: 1rem;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .attach-btn,
-        .code-btn,
-        .send-btn {
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 50%;
-            transition: background-color 0.2s;
-            color: var(--text-color);
-        }
-
-        .attach-btn:hover,
-        .code-btn:hover,
-        .send-btn:hover {
-            background-color: var(--hover-bg);
-        }
-
-        #chatInput {
-            flex: 1;
-            padding: 0.75rem;
-            border-radius: 20px;
-            border: 1px solid var(--border-color);
-            background: var(--input-bg);
-            color: var(--text-color);
-            margin: 0 0.5rem;
-        }
-
-        /* Dark mode styles */
-        [data-theme="dark"] .message.received .message-text {
-            background-color: #444;
-            color: white;
-        }
-
-        [data-theme="dark"] .search-input,
-        [data-theme="dark"] #chatInput {
-            background: #333;
-            border-color: #555;
-        }
-
-        [data-theme="dark"] .friend-item:hover,
-        [data-theme="dark"] .chat-item:hover,
-        [data-theme="dark"] .chat-item.active {
-            background-color: #333;
-        }
-
-        [data-theme="dark"] .attach-btn:hover,
-        [data-theme="dark"] .code-btn:hover,
-        [data-theme="dark"] .send-btn:hover,
-        [data-theme="dark"] .chat-action-btn:hover {
-            background-color: #333;
-        }
-
-        [data-theme="dark"] .friend-selection-container,
-        [data-theme="dark"] .chat-sidebar,
-        [data-theme="dark"] .chat-main {
-            background: #222;
-        }
-
-        [data-theme="dark"] .friend-selection-header,
-        [data-theme="dark"] .chat-search,
-        [data-theme="dark"] .chat-header-info,
-        [data-theme="dark"] .chat-input-container {
-            border-color: #444;
-        }
-
-        .no-chats {
-            text-align: center;
-            padding: 2rem;
-            color: #888;
-        }
-
-        .new-chat-link {
-            background: none;
-            border: none;
-            color: #007bff;
-            cursor: pointer;
-            text-decoration: underline;
-            font-size: 1rem;
-        }
-
-        .new-chat-link:hover {
-            color: #0056b3;
-        }
-
-        /* Image Lightbox */
-        .image-lightbox {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            justify-content: center;
-            align-items: center;
-        }
-
-        .lightbox-content {
-            max-width: 90%;
-            max-height: 90%;
-            object-fit: contain;
-        }
-
-        .lightbox-close {
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            color: #f1f1f1;
-            font-size: 40px;
-            font-weight: bold;
-            cursor: pointer;
-            background: none;
-            border: none;
-        }
-
-        .lightbox-close:hover {
-            color: #bbb;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="nav-bar">
-        <div class="nav-left">
-            <button class="back-btn" onclick="goBack()" title="Back">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5" />
-                    <path d="M12 19l-7-7 7-7" />
-                </svg>
-            </button>
-            <div class="brand-logo">Messages</div>
-        </div>
-
-        <div class="nav-right">
-            <div class="theme-toggle tooltip" data-tooltip="Theme" onclick="toggleTheme()" title="Theme">
-                <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2" style="display: none;">
-                    <circle cx="12" cy="12" r="5" />
-                    <line x1="12" y1="1" x2="12" y2="3" />
-                    <line x1="12" y1="21" x2="12" y2="23" />
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                    <line x1="1" y1="12" x2="3" y2="12" />
-                    <line x1="21" y1="12" x2="23" y2="12" />
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                </svg>
-            </div>
-
-            <button class="new-chat-btn" onclick="startNewChat()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 5v14M5 12h14" />
-                </svg>
-                New Chat
-            </button>
-        </div>
-    </div>
-
-    <div class="chat-page-container">
-        <div class="chat-layout">
-            <div class="chat-sidebar">
-                <div class="chat-search">
-                    <input type="text" placeholder="Search users..." class="search-input" oninput="searchUsers()">
-                </div>
-
-                <div class="chat-list" id="chatList">
-                    <!-- Chat items will be loaded dynamically -->
-                </div>
-            </div>
-
-            <!-- Friend Selection Interface -->
-            <div class="friend-selection-container" style="display: none;">
-                <div class="friend-selection-header">
-                    <h2>Select a Friend to Chat With</h2>
-                    <button class="close-friend-selection" onclick="hideFriendSelection()">×</button>
-                </div>
-                <div class="friend-list" id="friendList">
-                    <!-- Friends will be loaded dynamically -->
-                </div>
-            </div>
-
-            <div class="chat-main">
-                <div class="chat-header-info" id="chatHeaderInfo">
-                    <img src="https://via.placeholder.com/32" alt="Profile" class="current-chat-avatar">
-                    <div class="current-chat-info">
-                        <div class="current-chat-name">Select a chat</div>
-                        <div class="current-chat-status">Offline</div>
-                    </div>
-                    <div class="chat-actions">
-                        <button class="chat-action-btn" title="Video Call" onclick="startVideoCall()">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <polygon points="23 7 16 12 23 17 23 7" />
-                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                            </svg>
-                        </button>
-                        <button class="chat-action-btn" title="Voice Call" onclick="startVoiceCall()">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path
-                                    d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="chat-messages" id="chatMessages">
-                    <!-- Messages will be loaded dynamically -->
-                </div>
-
-                <div class="chat-input-container">
-                    <button class="attach-btn" title="Attach File" onclick="attachFile()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path
-                                d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                        </svg>
-                    </button>
-                    <input type="text" id="chatInput" placeholder="Type a message..."
-                        onkeypress="handleChatEnter(event)">
-                    <button class="code-btn" title="Share Code" onclick="shareCodeInChat()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <polyline points="16,18 22,12 16,6" />
-                            <polyline points="8,6 2,12 8,18" />
-                        </svg>
-                    </button>
-                    <button class="send-btn" onclick="sendMessage()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <line x1="22" y1="2" x2="11" y2="13" />
-                            <polygon points="22,2 15,22 11,13 2,9 22,2" />
-                        </svg>
-                    </button>
-                    <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(event)">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
+# Define the correct script content
+script_content = """
         // Navigation history management
         let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
         let socket;
@@ -723,11 +163,12 @@
                         <div class="chat-info" onclick="openChat('${friend.id}')" style="cursor: pointer;">
                             <div class="chat-name" onclick="window.location.href='/user/${friend.id}'; event.stopPropagation();" style="cursor: pointer;">${friend.name}</div>
                             <div class="chat-username">@${friend.username}</div>
+                            <div class="chat-last-message">Click to start chat</div>
                         </div>
                         <div class="online-status-indicator" id="online-status-${friend.id}"></div>
                     </div>
                 `).join('');
-
+                
                 // Fetch and update status for each friend
                 chats.forEach(friend => {
                     updateFriendStatus(friend.id);
@@ -961,7 +402,11 @@
             const chatMessages = document.getElementById('chatMessages');
             const uploadingMessage = document.createElement('div');
             uploadingMessage.className = 'message sent';
-            uploadingMessage.innerHTML = `<div class="message-content"><div class="message-text">Uploading file...</div></div>`;
+            uploadingMessage.innerHTML = `
+                <div class="message-content">
+                    <div class="message-text">Uploading file...</div>
+                </div>
+            `;
             chatMessages.appendChild(uploadingMessage);
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -1032,7 +477,6 @@
 
             // Get code from session storage or prompt user
             const code = sessionStorage.getItem('uploadedCode') || '';
-
             if (code) {
                 // Send code as a message
                 fetch('/api/send-message', {
@@ -1090,11 +534,9 @@
 
         // Update friend's online status
         function updateFriendStatus(userId) {
-            console.log(`Fetching status for user ${userId}...`);
             fetch(`/api/user-status/${userId}`)
                 .then(response => response.json())
                 .then(data => {
-                    console.log(`Status for user ${userId}:`, data);
                     updateUserPresenceIndicator(data);
                 })
                 .catch(error => {
@@ -1110,7 +552,6 @@
                 document.querySelector('.moon').style.display = 'none';
                 document.querySelector('.sun').style.display = 'block';
             }
-
             updateNavigationHistory();
 
             // Initialize Socket.IO
@@ -1123,11 +564,9 @@
                     displayMessage(data);
                 }
             });
-
             socket.on('user_joined', (data) => {
                 console.log(data.user + ' joined the chat');
             });
-
             socket.on('user_left', (data) => {
                 console.log(data.user + ' left the chat');
             });
@@ -1146,20 +585,20 @@
             });
 
             // Join user's personal room for notifications
-            socket.emit('join', { room: `user_{{ user.id }}` });
-
+            socket.emit('join', {room: `user_{{ user.id }}`});
+            
             // Join user's own chat room to receive sent messages in real-time
-            socket.emit('join', { room: `chat_{{ user.id }}` });
-
+            socket.emit('join', {room: `chat_{{ user.id }}`});
+            
             // Send chat window opened event to update presence
             socket.emit('chat_window_opened', { status: 'online', page: 'chat' });
-
+            
             // Load chats
             loadChats();
         });
 
         // Handle page visibility changes (tab switching)
-        document.addEventListener('visibilitychange', function () {
+        document.addEventListener('visibilitychange', function() {
             if (document.hidden) {
                 // User switched to another tab - mark as offline
                 if (socket) {
@@ -1174,7 +613,7 @@
         });
 
         // Handle page unload (closing/navigating away)
-        window.addEventListener('beforeunload', function () {
+        window.addEventListener('beforeunload', function() {
             if (socket) {
                 socket.emit('chat_window_closed', { status: 'offline', page: 'navigating_away' });
             }
@@ -1191,19 +630,16 @@
                     statusIndicator.className = 'online-status-indicator offline';
                     if (data.last_seen) {
                         const lastSeen = new Date(data.last_seen);
-                        // Format as 12-hour with AM/PM
-                        const hours = lastSeen.getHours();
-                        const minutes = lastSeen.getMinutes();
-                        const ampm = hours >= 12 ? 'PM' : 'AM';
-                        const hours12 = hours % 12 || 12;
-                        const minutesStr = minutes.toString().padStart(2, '0');
-                        statusIndicator.title = `Was online at ${hours12}:${minutesStr} ${ampm}`;
+                        // Format as 24-hour HH:mm
+                        const hours = lastSeen.getHours().toString().padStart(2, '0');
+                        const minutes = lastSeen.getMinutes().toString().padStart(2, '0');
+                        statusIndicator.title = `Was online at ${hours}:${minutes}`;
                     } else {
                         statusIndicator.title = 'Offline';
                     }
                 }
             }
-
+            
             // Update chat header if this is the current chat user
             if (currentChatUser === data.user_id) {
                 const statusElement = document.querySelector('.current-chat-status');
@@ -1214,13 +650,10 @@
                     } else {
                         if (data.last_seen) {
                             const lastSeen = new Date(data.last_seen);
-                            // Format as 12-hour with AM/PM
-                            const hours = lastSeen.getHours();
-                            const minutes = lastSeen.getMinutes();
-                            const ampm = hours >= 12 ? 'PM' : 'AM';
-                            const hours12 = hours % 12 || 12;
-                            const minutesStr = minutes.toString().padStart(2, '0');
-                            statusElement.textContent = `Was online at ${hours12}:${minutesStr} ${ampm}`;
+                            // Format as 24-hour HH:mm
+                            const hours = lastSeen.getHours().toString().padStart(2, '0');
+                            const minutes = lastSeen.getMinutes().toString().padStart(2, '0');
+                            statusElement.textContent = `Was online at ${hours}:${minutes}`;
                         } else {
                             statusElement.textContent = 'Offline';
                         }
@@ -1236,7 +669,7 @@
                 showFriendSelection();
                 return;
             }
-
+            
             // Check if there's a last chat in history
             if (chatHistory.lastChat && friends.some(f => f.id === chatHistory.lastChat)) {
                 // Open the last chat
@@ -1276,3 +709,11 @@
 </body>
 
 </html>
+"""
+
+full_content = top_part + script_content
+
+with open(file_path, 'w', encoding='utf-8') as f:
+    f.write(full_content)
+
+print("Successfully reconstructed chat.html")
