@@ -15,6 +15,7 @@ import os
 import shutil
 import json
 import time
+import re
 
 # Global variables to hold app and socketio instances
 app = None
@@ -1033,23 +1034,21 @@ def register_routes():
             if not user:
                 return jsonify({'success': False, 'error': 'User not found'}), 404
             
-            # Format last seen time in 12-hour format with AM/PM
-            last_seen_formatted = None
+            # Return UTC time with 'Z' suffix so client handles timezone conversion
+            last_seen_iso = None
             if user.last_seen:
-                # Convert UTC to local time (IST) and format as 12-hour with AM/PM
-                from datetime import timezone, timedelta
-                # Assuming IST (UTC+5:30)
-                ist_offset = timedelta(hours=5, minutes=30)
-                last_seen_ist = user.last_seen + ist_offset
-                last_seen_formatted = last_seen_ist.strftime('%I:%M %p')
+                # Ensure it's treated as UTC
+                last_seen_iso = user.last_seen.isoformat()
+                if not last_seen_iso.endswith('Z') and not '+' in last_seen_iso:
+                    last_seen_iso += 'Z'
             
-            print(f"API User Status for {user.id}: online={user.is_online}, last_seen={user.last_seen}")
+            print(f"API User Status for {user.id}: online={user.is_online}, last_seen={last_seen_iso}")
 
             return jsonify({
                 'success': True,
                 'is_online': user.is_online,
-                'last_seen': user.last_seen.isoformat() if user.last_seen else None,
-                'last_seen_formatted': last_seen_formatted
+                'last_seen': last_seen_iso,
+                'last_seen_formatted': None # Client handles formatting
             })
         except Exception as e:
             print(f"Error getting user status: {e}")
@@ -1150,3 +1149,282 @@ def register_socketio_events():
                 'is_online': False,
                 'last_seen': current_user.last_seen.isoformat()
             }, broadcast=True)
+
+    # ---------------------------------------------------------
+    # AI Features & Compiler Routes
+    # ---------------------------------------------------------
+
+    @app.route('/api/dictionary', methods=['POST'])
+    @require_login
+    def api_dictionary():
+        """Generate code snippet from dictionary search"""
+        try:
+            data = request.get_json()
+            # Frontend sends 'term', backend was expecting 'prompt'
+            prompt = data.get('term') or data.get('prompt')
+            language = data.get('language', 'python')
+            
+            if not prompt:
+                return jsonify({'success': False, 'error': 'Search term is required'}), 400
+                
+            from ai_models import generate_code
+            code = generate_code(prompt, language)
+            
+            # Frontend expects 'result', backend was returning 'code'
+            return jsonify({'success': True, 'result': code})
+        except Exception as e:
+            print(f"Error in dictionary: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/translate', methods=['POST'])
+    @require_login
+    def api_translate():
+        """Translate code between languages"""
+        try:
+            data = request.get_json()
+            code = data.get('code')
+            target_lang = data.get('to_lang') or data.get('target_lang')
+            source_lang = data.get('from_lang') or data.get('source_lang') # Optional, will auto-detect if None
+            
+            if not code or not target_lang:
+                return jsonify({'success': False, 'error': 'Code and target language are required'}), 400
+                
+            from ai_models import translate_code
+            translated = translate_code(code, target_lang, source_lang)
+            
+            # Frontend expects 'result', backend was returning 'code'
+            return jsonify({'success': True, 'result': translated})
+        except Exception as e:
+            print(f"Error in translation: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/review', methods=['POST'])
+    @require_login
+    def api_review():
+        """Review code for errors and improvements"""
+        try:
+            data = request.get_json()
+            code = data.get('code')
+            language = data.get('language', 'python')
+            
+            if not code:
+                return jsonify({'success': False, 'error': 'Code is required'}), 400
+                
+            from ai_models import review_code
+            review = review_code(code, language)
+            
+            # Frontend expects 'result', backend was returning 'review'
+            return jsonify({'success': True, 'result': review})
+        except Exception as e:
+            print(f"Error in review: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/explain', methods=['POST'])
+    @require_login
+    def api_explain():
+        """Explain code based on persona"""
+        try:
+            data = request.get_json()
+            code = data.get('code')
+            language = data.get('language', 'python')
+            role = data.get('role') or data.get('profession', 'student')
+            
+            if not code:
+                return jsonify({'success': False, 'error': 'Code is required'}), 400
+                
+            from ai_models import explain_code
+            explanation = explain_code(code, language, role)
+            
+            # Frontend expects 'result', backend was returning 'explanation'
+            return jsonify({'success': True, 'result': explanation})
+        except Exception as e:
+            print(f"Error in explanation: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/question', methods=['POST'])
+    @require_login
+    def api_question():
+        """Answer coding questions (AI Agent)"""
+        try:
+            data = request.get_json()
+            question = data.get('question')
+            code = data.get('code')
+            language = data.get('language', 'python')
+            
+            if not question:
+                return jsonify({'success': False, 'error': 'Question is required'}), 400
+                
+            from ai_models import ask_question
+            answer = ask_question(question, code, language)
+            
+            # Frontend expects 'result', backend was returning 'answer'
+            return jsonify({'success': True, 'result': answer})
+        except Exception as e:
+            print(f"Error in question: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/execute', methods=['POST'])
+    @require_login
+    def api_execute():
+        """Execute code locally or prepare for web view"""
+        try:
+            data = request.get_json()
+            code = data.get('code')
+            language = data.get('language', 'python').lower()
+            inputs = data.get('inputs', []) # List of inputs for interactive programs
+            
+            if not code:
+                return jsonify({'success': False, 'error': 'Code is required'}), 400
+
+            # Web Languages (HTML, CSS, JS) - Return content for browser/iframe
+            if language in ['html', 'css', 'javascript', 'js']:
+                # Create a temporary file for the web content
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, dir='static/temp') as f:
+                    if language == 'html':
+                        f.write(code)
+                    elif language == 'css':
+                        f.write(f"<style>{code}</style>")
+                    elif language in ['javascript', 'js']:
+                        f.write(f"<script>{code}</script>")
+                    temp_path = f.name
+                
+                # Return the relative path for the frontend to open
+                relative_path = temp_path.replace(os.sep, '/').split('static/')[-1]
+                return jsonify({
+                    'success': True,
+                    'output': 'Web content ready',
+                    'type': 'web',
+                    'url': f'/static/temp/{os.path.basename(temp_path)}'
+                })
+
+            # Interactive Execution for Standard Languages
+            import uuid
+            session_id = str(uuid.uuid4())
+            
+            # Start background thread for execution
+            thread = threading.Thread(target=run_interactive_process, args=(code, language, session_id, current_user.id))
+            thread.daemon = True
+            thread.start()
+            
+            return jsonify({
+                'success': True,
+                'type': 'interactive',
+                'session_id': session_id,
+                'message': 'Interactive session started'
+            })
+
+        except Exception as e:
+            print(f"Error in execution: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    # Interactive Process Management
+    def run_interactive_process(code, language, session_id, user_id):
+        """Run process and stream output via Socket.IO"""
+        temp_dir = os.path.join(os.getcwd(), 'temp_exec')
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        process = None
+        script_path = None
+        exe_path = None
+        
+        try:
+            # Setup process based on language
+            if language == 'python':
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, dir=temp_dir) as f:
+                    f.write(code)
+                    script_path = f.name
+                command = ['python', '-u', script_path] # -u for unbuffered output
+                
+            elif language == 'java':
+                class_name = "Main"
+                match = re.search(r'public\s+class\s+(\w+)', code)
+                if match: class_name = match.group(1)
+                
+                java_file = os.path.join(temp_dir, f"{class_name}.java")
+                with open(java_file, 'w') as f: f.write(code)
+                script_path = java_file
+                
+                # Compile
+                compile_proc = subprocess.run(['javac', java_file], capture_output=True, text=True)
+                if compile_proc.returncode != 0:
+                    socketio.emit('execution_output', {'output': f"Compilation Error:\n{compile_proc.stderr}", 'session_id': session_id}, room=f'user_{user_id}')
+                    return
+                
+                command = ['java', '-cp', temp_dir, class_name]
+                exe_path = os.path.join(temp_dir, f"{class_name}.class")
+                
+            elif language in ['cpp', 'c++']:
+                cpp_file = os.path.join(temp_dir, f"prog_{session_id}.cpp")
+                exe_file = os.path.join(temp_dir, f"prog_{session_id}.exe")
+                with open(cpp_file, 'w') as f: f.write(code)
+                script_path = cpp_file
+                exe_path = exe_file
+                
+                # Compile
+                compile_proc = subprocess.run(['g++', cpp_file, '-o', exe_file], capture_output=True, text=True)
+                if compile_proc.returncode != 0:
+                    socketio.emit('execution_output', {'output': f"Compilation Error:\n{compile_proc.stderr}", 'session_id': session_id}, room=f'user_{user_id}')
+                    return
+                
+                command = [exe_file]
+            
+            else:
+                socketio.emit('execution_output', {'output': f"Language {language} not supported", 'session_id': session_id}, room=f'user_{user_id}')
+                return
+
+            # Start Process
+            process = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=0 # Unbuffered
+            )
+            
+            # Store process for input handling
+            running_processes[session_id] = process
+            
+            # Stream Output
+            def stream_output(pipe, type_):
+                for line in iter(pipe.readline, ''):
+                    if line:
+                        socketio.emit('execution_output', {'output': line, 'session_id': session_id, 'type': type_}, room=f'user_{user_id}')
+                pipe.close()
+            
+            stdout_thread = threading.Thread(target=stream_output, args=(process.stdout, 'stdout'))
+            stderr_thread = threading.Thread(target=stream_output, args=(process.stderr, 'stderr'))
+            stdout_thread.start()
+            stderr_thread.start()
+            
+            process.wait()
+            stdout_thread.join()
+            stderr_thread.join()
+            
+            socketio.emit('execution_finished', {'session_id': session_id}, room=f'user_{user_id}')
+            
+        except Exception as e:
+            socketio.emit('execution_output', {'output': f"Execution Error: {str(e)}", 'session_id': session_id}, room=f'user_{user_id}')
+        finally:
+            if session_id in running_processes:
+                del running_processes[session_id]
+            # Cleanup files
+            try:
+                if script_path and os.path.exists(script_path): os.remove(script_path)
+                if exe_path and os.path.exists(exe_path): os.remove(exe_path)
+            except: pass
+
+    @socketio.on('execution_input')
+    def handle_execution_input(data):
+        """Handle input for interactive execution"""
+        session_id = data.get('session_id')
+        user_input = data.get('input')
+        
+        if session_id in running_processes:
+            process = running_processes[session_id]
+            if process.poll() is None: # Process is running
+                try:
+                    process.stdin.write(user_input + '\n')
+                    process.stdin.flush()
+                except Exception as e:
+                    print(f"Error writing to stdin: {e}")

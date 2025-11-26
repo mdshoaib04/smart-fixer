@@ -338,6 +338,55 @@ document.addEventListener('DOMContentLoaded', function () {
         updateChatBadge();
         displayMessage(data);
     });
+    // Listen for execution output (interactive programs)
+    socket.on('execution_output', function (data) {
+        if (data.session_id === currentSessionId) {
+            const outputContent = document.getElementById('outputContent');
+
+            // Create output element
+            const outputLine = document.createElement('div');
+            outputLine.style.cssText = 'font-family: monospace; white-space: pre-wrap;';
+
+            if (data.type === 'stderr') {
+                outputLine.style.color = '#ff4757'; // Red for errors
+            } else {
+                outputLine.style.color = 'var(--text-color)';
+            }
+
+            outputLine.textContent = data.output;
+            outputContent.appendChild(outputLine);
+
+            // Auto-scroll to bottom
+            outputContent.scrollTop = outputContent.scrollHeight;
+
+            // Check if we should show input container
+            if (shouldShowInputContainer(data.output)) {
+                // Focus input if it looks like a prompt
+                if (qnaInput) {
+                    qnaInput.placeholder = "Enter input for your program...";
+                    qnaInput.focus();
+                }
+            }
+        }
+    });
+
+    // Listen for execution finished
+    socket.on('execution_finished', function (data) {
+        if (data.session_id === currentSessionId) {
+            isInteractiveProgram = false;
+            currentSessionId = null;
+
+            const outputContent = document.getElementById('outputContent');
+            const finishedLine = document.createElement('div');
+            finishedLine.style.cssText = 'color: var(--text-secondary-color); font-style: italic; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 5px;';
+            finishedLine.textContent = 'Program finished.';
+            outputContent.appendChild(finishedLine);
+            outputContent.scrollTop = outputContent.scrollHeight;
+
+            showOutputActions();
+            if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
+        }
+    });
 });
 
 // Profile dropdown toggle
@@ -346,59 +395,14 @@ function toggleProfileDropdown() {
     profileDropdown.classList.toggle('active');
 }
 
-// Close profile dropdown when clicking outside
-document.addEventListener('click', function (event) {
-    const profileLogo = document.querySelector('.profile-logo');
-    const profileDropdown = document.getElementById('profileDropdown');
+// ... (rest of functions) ...
 
-    if (!profileLogo.contains(event.target) && !profileDropdown.contains(event.target)) {
-        profileDropdown.classList.remove('active');
-    }
-});
-
-// Toggle chat - now navigates to chat page
-function toggleChat() {
-    window.location.href = '/chat';
-}
-
-// Open chat page and reset chat badge
+// Open Chat Function
 function openChat() {
-    // Reset chat badge when user opens chat
-    const badge = document.getElementById('chatBadge');
-    if (badge) {
-        badge.textContent = '0';
-        badge.style.display = 'none';
-    }
     window.location.href = '/chat';
 }
 
-// Display message function
-function displayMessage(data) {
-    // This would display chat messages in a chat interface
-    console.log('New message:', data);
-
-    // Update chat badge when a new message arrives
-    updateChatBadge();
-}
-
-// Temporary function to simulate receiving a chat message (for testing)
-function simulateNewChatMessage() {
-    // This simulates receiving a new chat message
-    const event = new CustomEvent('socket:new_chat_message', {
-        detail: { message: 'New message received' }
-    });
-    window.dispatchEvent(event);
-
-    // Update chat badge
-    updateChatBadge();
-}
-
-// Add event listener for the custom event
-window.addEventListener('socket:new_chat_message', function (event) {
-    console.log('Received new chat message:', event.detail.message);
-});
-
-// Update notification badge
+// Helper functions (previously nested, now global)
 async function updateNotificationBadge() {
     try {
         const response = await fetch('/api/notifications/unread-count');
@@ -1493,6 +1497,7 @@ function updateDictionaryLanguage() {
 }
 
 // Search dictionary
+// Search dictionary
 async function searchDictionary() {
     const searchTerm = document.getElementById('dictSearch').value.trim();
     const language = document.getElementById('dictLanguage').value;
@@ -1517,12 +1522,69 @@ async function searchDictionary() {
 
         const data = await response.json();
         if (data.success) {
-            dictionaryContent.innerHTML = `<pre><code>${data.result}</code></pre>`;
+            // Create a container with relative positioning for the copy button
+            const codeHtml = `
+                <div style="position: relative; margin-top: 10px;">
+                    <button onclick="copyDictionaryCode(this)" style="
+                        position: absolute;
+                        top: 5px;
+                        right: 5px;
+                        background: rgba(255, 255, 255, 0.1);
+                        border: 1px solid var(--border-color);
+                        border-radius: 4px;
+                        color: var(--text-color);
+                        padding: 4px 8px;
+                        font-size: 12px;
+                        cursor: pointer;
+                        z-index: 10;
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    ">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                    <pre style="padding-top: 30px;"><code id="dictionaryCodeResult">${data.result}</code></pre>
+                </div>
+            `;
+            dictionaryContent.innerHTML = codeHtml;
         } else {
             dictionaryContent.innerHTML = `<div class="error">${data.result || 'Failed to get dictionary content.'}</div>`;
         }
     } catch (error) {
         dictionaryContent.innerHTML = '<div class="error">Failed to get dictionary content. Please try again.</div>';
         console.error('Dictionary error:', error);
+    }
+}
+
+// Copy dictionary code
+function copyDictionaryCode(btn) {
+    const codeElement = document.getElementById('dictionaryCodeResult');
+    if (codeElement) {
+        const code = codeElement.textContent;
+        navigator.clipboard.writeText(code).then(() => {
+            // Visual feedback
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Copied!
+            `;
+            btn.style.background = 'rgba(46, 204, 113, 0.2)';
+            btn.style.borderColor = '#2ecc71';
+
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+                btn.style.background = 'rgba(255, 255, 255, 0.1)';
+                btn.style.borderColor = 'var(--border-color)';
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            alert('Failed to copy code to clipboard');
+        });
     }
 }
