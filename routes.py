@@ -1176,6 +1176,25 @@ def register_socketio_events():
             print(f"Error in dictionary: {e}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    @app.route('/api/detect-language', methods=['POST'])
+    @require_login
+    def api_detect_language():
+        """Detect programming language of code"""
+        try:
+            data = request.get_json()
+            code = data.get('code')
+            
+            if not code:
+                return jsonify({'success': False, 'error': 'Code is required'}), 400
+                
+            from ai_models import detect_language
+            language = detect_language(code)
+            
+            return jsonify({'success': True, 'language': language})
+        except Exception as e:
+            print(f"Error in detection: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
     @app.route('/api/translate', methods=['POST'])
     @require_login
     def api_translate():

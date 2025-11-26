@@ -450,9 +450,44 @@ function showDictionary() {
 }
 
 // Show translate modal
-function showTranslate() {
+async function showTranslate() {
     const translateModal = document.getElementById('translateModal');
     translateModal.classList.add('active');
+
+    // Auto-detect language from editor content
+    const code = editor.getValue();
+    const fromLangLabel = document.getElementById('fromLang');
+
+    if (code.trim()) {
+        fromLangLabel.innerHTML = '<span class="loading-dots">Detecting...</span>';
+        try {
+            // Use the existing currentLanguage if it was already detected by the editor
+            // Or call API if needed (but editor usually detects it)
+
+            // For now, let's use the currentLanguage variable which is updated by the editor's change listener
+            // But let's double check with a quick API call to be sure for the modal
+            const response = await fetch('/api/detect-language', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                const detectedLang = data.language.charAt(0).toUpperCase() + data.language.slice(1);
+                fromLangLabel.textContent = `${detectedLang} (auto-detected)`;
+                // Update currentLanguage global just in case
+                currentLanguage = data.language;
+            } else {
+                fromLangLabel.textContent = `${currentLanguage} (auto-detected)`;
+            }
+        } catch (e) {
+            console.error("Detection failed", e);
+            fromLangLabel.textContent = `${currentLanguage} (auto-detected)`;
+        }
+    } else {
+        fromLangLabel.textContent = "No code to detect";
+    }
 }
 
 // Show history modal
@@ -1451,6 +1486,7 @@ function listenOutput() {
 }
 
 // Translate code function
+// Translate code function
 async function translateCode() {
     const code = editor.getValue();
     const toLang = document.getElementById('toLang').value;
@@ -1460,9 +1496,12 @@ async function translateCode() {
         return;
     }
 
-    if (currentLanguage === toLang) {
-        alert('Source and target languages are the same.');
-        return;
+    // Allow translation even if languages seem same, as user might want to fix syntax or change style
+    // But warn if they are exactly the same string
+    if (currentLanguage.toLowerCase() === toLang.toLowerCase()) {
+        if (!confirm(`Source and target languages appear to be the same (${toLang}). Continue anyway?`)) {
+            return;
+        }
     }
 
     const translateResult = document.getElementById('translateResult');
@@ -1481,13 +1520,70 @@ async function translateCode() {
 
         const data = await response.json();
         if (data.success) {
-            translateResult.innerHTML = `<pre><code>${data.result}</code></pre>`;
+            // Create a container with relative positioning for the copy button
+            const codeHtml = `
+                <div style="position: relative; margin-top: 10px;">
+                    <button onclick="copyTranslateCode(this)" style="
+                        position: absolute;
+                        top: 5px;
+                        right: 5px;
+                        background: rgba(255, 255, 255, 0.1);
+                        border: 1px solid var(--border-color);
+                        border-radius: 4px;
+                        color: var(--text-color);
+                        padding: 4px 8px;
+                        font-size: 12px;
+                        cursor: pointer;
+                        z-index: 10;
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    ">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                    <pre style="padding-top: 30px;"><code id="translateCodeResult">${data.result}</code></pre>
+                </div>
+            `;
+            translateResult.innerHTML = codeHtml;
         } else {
             translateResult.innerHTML = `<div class="error">${data.result || 'Failed to translate code.'}</div>`;
         }
     } catch (error) {
         translateResult.innerHTML = '<div class="error">Failed to translate code. Please try again.</div>';
         console.error('Translation error:', error);
+    }
+}
+
+// Copy translated code
+function copyTranslateCode(btn) {
+    const codeElement = document.getElementById('translateCodeResult');
+    if (codeElement) {
+        const code = codeElement.textContent;
+        navigator.clipboard.writeText(code).then(() => {
+            // Visual feedback
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Copied!
+            `;
+            btn.style.background = 'rgba(46, 204, 113, 0.2)';
+            btn.style.borderColor = '#2ecc71';
+
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+                btn.style.background = 'rgba(255, 255, 255, 0.1)';
+                btn.style.borderColor = 'var(--border-color)';
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            alert('Failed to copy code to clipboard');
+        });
     }
 }
 

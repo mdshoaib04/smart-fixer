@@ -119,6 +119,10 @@ def detect_language(code: str) -> str:
     # CSS indicators
     if any(k in code_lower for k in ['body {', '.class {', '#id {', 'margin:', 'padding:']):
         return "css"
+
+    # Shell/Bash indicators
+    if any(k in code_lower for k in ['#!/bin/bash', '#!/bin/sh', 'echo ', 'ls ', 'grep ', 'sudo ', 'apt-get', 'yum install']):
+        return "shell"
     
     return "python"
 
