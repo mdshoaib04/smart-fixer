@@ -931,6 +931,7 @@ async function reviewCode() {
         const data = await response.json();
         if (data.success) {
             typewriterEffect(data.result);
+            saveToHistory('Review', data.result);
         } else {
             showError(data.result || 'Failed to review code.');
         }
@@ -964,6 +965,7 @@ async function explainCode() {
         const data = await response.json();
         if (data.success) {
             typewriterEffect(data.result);
+            saveToHistory('Explain', data.result);
         } else {
             showError(data.result || 'Failed to explain code.');
         }
@@ -1150,6 +1152,7 @@ async function compileCode(input = null) {
 
                 // Reset search bar
                 if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
+                saveToHistory('Compile (Web)', `Opened URL: ${url}`);
             }
             // Handle Piston/Cloud execution output
             else if (data.type === 'piston' || data.output) {
@@ -1161,6 +1164,7 @@ async function compileCode(input = null) {
 
                 // Display the output directly
                 typewriterEffect(data.output || data.result || 'Code executed successfully.');
+                saveToHistory('Compile', data.output || data.result || 'Code executed successfully.');
 
                 hideInputContainer();
 
@@ -1177,6 +1181,7 @@ async function compileCode(input = null) {
 
                 // Focus search bar for input
                 if (qnaInput) qnaInput.focus();
+                saveToHistory('Compile (Interactive)', 'Interactive program started.');
             }
             // Handle regular output
             else if (data.type === 'output') {
@@ -1190,13 +1195,15 @@ async function compileCode(input = null) {
                 if (result && result.trim().length > 0) {
                     // We have actual output - show it
                     typewriterEffect(result);
+                    saveToHistory('Compile', result);
                 } else if (result === '' || result === null || result === undefined) {
                     // Truly no output - show message
                     outputContent.innerHTML = '<div style="color: var(--text-color); padding: 20px; text-align: center;"><p>✅ Code executed successfully.</p><p style="color: var(--text-secondary-color); font-size: 0.9em; margin-top: 10px;">No output was produced by the program.</p></div>';
-                    showOutputActions();
+                    saveToHistory('Compile', 'Code executed successfully. No output.');
                 } else {
                     // Fallback - show whatever we got
                     typewriterEffect(result);
+                    saveToHistory('Compile', result);
                 }
                 hideInputContainer();
             }
@@ -1209,6 +1216,7 @@ async function compileCode(input = null) {
                 outputContent.style.overflow = 'auto';
                 showError(data.result);
                 hideInputContainer();
+                saveToHistory('Compile (Error)', data.result);
             }
             // Default - show result
             else {
@@ -1219,18 +1227,21 @@ async function compileCode(input = null) {
                 outputContent.style.overflow = 'auto';
                 typewriterEffect(data.result || 'Code executed successfully.');
                 hideInputContainer();
+                saveToHistory('Compile', data.result || 'Code executed successfully.');
             }
         } else {
             isInteractiveProgram = false;
             currentExecId = null;
             showError(data.result || data.error || 'Failed to execute code.');
             if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
+            saveToHistory('Compile (Error)', data.result || data.error || 'Failed to execute code.');
         }
     } catch (error) {
         console.error('Error compiling code:', error);
         showError('Failed to connect to the server. Please try again.');
         isInteractiveProgram = false;
         if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
+        saveToHistory('Compile (Error)', 'Failed to connect to the server.');
     }
 }
 
@@ -1444,6 +1455,9 @@ async function askQuestion() {
         if (data.success) {
             typewriterEffect(data.result);
             document.getElementById('qnaInput').value = '';
+
+            // Save to history
+            saveToHistory('Review', data.result);
         } else {
             showError(data.result || 'Failed to answer question.');
         }
@@ -1549,6 +1563,9 @@ async function translateCode() {
                 </div>
             `;
             translateResult.innerHTML = codeHtml;
+
+            // Save to history
+            saveToHistory('Translate', data.result);
         } else {
             translateResult.innerHTML = `<div class="error">${data.result || 'Failed to translate code.'}</div>`;
         }
@@ -1647,6 +1664,9 @@ async function searchDictionary() {
                 </div>
             `;
             dictionaryContent.innerHTML = codeHtml;
+
+            // Save to history
+            saveToHistory('Dictionary', data.result);
         } else {
             dictionaryContent.innerHTML = `<div class="error">${data.result || 'Failed to get dictionary content.'}</div>`;
         }
@@ -1683,4 +1703,71 @@ function copyDictionaryCode(btn) {
             alert('Failed to copy code to clipboard');
         });
     }
+}
+
+// Save to history helper
+function saveToHistory(action, result) {
+    const code = editor.getValue();
+    if (!code.trim()) {
+        console.log("Skipping history save: Code is empty");
+        return;
+    }
+
+    console.log("Saving to history:", { action, language: currentLanguage, codeLength: code.length });
+
+    fetch('/api/history/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            code: code,
+            language: currentLanguage,
+            action: action,
+            result: result
+        })
+    }).then(response => response.json())
+        .then(data => {
+            console.log("History save response:", data);
+            if (data.success) {
+                console.log('History saved successfully');
+            } else {
+                console.error('History save failed:', data.error);
+            }
+        })
+        .catch(err => console.error('Error saving history:', err));
+}
+
+// Show history modal
+function showHistory() {
+    const historyModal = document.getElementById('historyModal');
+    historyModal.classList.add('active');
+
+    const historyList = document.getElementById('historyContent');
+    historyList.innerHTML = '<div class="loading">Loading history...</div>';
+
+    fetch('/api/history/list')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.history.length === 0) {
+                    historyList.innerHTML = '<div class="empty-state">No history yet</div>';
+                    return;
+                }
+
+                historyList.innerHTML = data.history.map(item => `
+                    <div class="history-item" onclick="restoreHistory(${item.id})">
+                        <div class="history-header">
+                            <span class="history-title">${item.title}</span>
+                            <span class="history-date">${item.date}</span>
+                        </div>
+                        <div class="history-action">${item.action}</div>
+                    </div>
+                `).join('');
+            } else {
+                historyList.innerHTML = `<div class="error">Failed to load history: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading history:', error);
+            historyList.innerHTML = '<div class="error">Failed to load history</div>';
+        });
 }

@@ -92,37 +92,80 @@ def detect_language(code: str) -> str:
     
     code_lower = code.lower()
     
-    # Python indicators
-    if any(k in code_lower for k in ['def ', 'import ', 'print(', 'if __name__', 'lambda ', 'elif ']):
-        return "python"
-    
-    # JavaScript indicators
-    if any(k in code_lower for k in ['function ', 'const ', 'let ', 'var ', 'console.log', '=>', 'document.']):
-        return "javascript"
-    
-    # Java indicators
-    if any(k in code_lower for k in ['public class', 'public static void', 'System.out.println', 'ArrayList<']):
-        return "java"
-    
-    # C++ indicators
-    if any(k in code_lower for k in ['#include <iostream>', 'using namespace std', 'std::cout', 'cout <<']):
-        return "cpp"
-    
-    # C indicators
-    if any(k in code_lower for k in ['#include <stdio.h>', 'printf(', 'scanf(']):
-        return "c"
-        
-    # HTML indicators
-    if any(k in code_lower for k in ['<!DOCTYPE html>', '<html>', '<body>', '<div']):
+    # HTML indicators (Check first as it's distinct)
+    if any(k in code_lower for k in ['<!doctype html>', '<html>', '<body>', '<div', '<span', '<script']):
         return "html"
         
     # CSS indicators
-    if any(k in code_lower for k in ['body {', '.class {', '#id {', 'margin:', 'padding:']):
+    if any(k in code_lower for k in ['body {', '.class {', '#id {', 'margin:', 'padding:', 'color:']):
         return "css"
+
+    # Python indicators (Specific syntax)
+    if any(k in code_lower for k in ['def ', 'import ', 'if __name__', 'elif ', 'pass', 'None', 'True', 'False']):
+        # Check for colons which are characteristic of Python blocks
+        if ':' in code:
+            return "python"
+    
+    # JavaScript/TypeScript indicators
+    if any(k in code_lower for k in ['function ', 'const ', 'let ', 'var ', 'console.log', '=>', 'document.', 'window.', 'import ']):
+        if 'interface ' in code_lower or 'type ' in code_lower or ': string' in code_lower or ': number' in code_lower:
+            return "typescript"
+        return "javascript"
+    
+    # Java indicators
+    if any(k in code_lower for k in ['public class', 'public static void', 'system.out.println', 'arraylist<', 'extends ', 'implements ']):
+        return "java"
+    
+    # C++ indicators
+    if any(k in code_lower for k in ['#include <iostream>', 'using namespace std', 'std::cout', 'cout <<', '::']):
+        return "cpp"
+    
+    # C indicators
+    if any(k in code_lower for k in ['#include <stdio.h>', 'printf(', 'scanf(', 'void main(']):
+        return "c"
+        
+    # PHP indicators
+    if any(k in code_lower for k in ['<?php', '$', 'echo ', '->']):
+        return "php"
+
+    # Go indicators
+    if any(k in code_lower for k in ['package main', 'func ', 'fmt.println', 'go func']):
+        return "go"
+
+    # Rust indicators
+    if any(k in code_lower for k in ['fn main', 'println!', 'let mut ', 'pub fn ', 'impl ']):
+        return "rust"
+
+    # SQL indicators
+    if any(k in code_lower for k in ['select ', 'insert into', 'create table', 'update ', 'delete from', 'where ']):
+        return "sql"
 
     # Shell/Bash indicators
     if any(k in code_lower for k in ['#!/bin/bash', '#!/bin/sh', 'echo ', 'ls ', 'grep ', 'sudo ', 'apt-get', 'yum install']):
         return "shell"
+    
+    # AI Fallback: If heuristic fails, ask the AI
+    try:
+        from ai_helper import generate_content, ai_client
+        if ai_client and generate_content:
+            prompt = f"""Identify the programming language of this code. Return ONLY the language name (e.g., python, javascript, cpp, java).
+            
+            Code:
+            {code[:500]}""" # Send first 500 chars to save tokens/time
+            
+            result = generate_content(prompt)
+            if result and "AI client not initialized" not in result:
+                # Clean up result
+                lang = result.strip().lower().split('\n')[0].replace('.', '')
+                # Normalize
+                if 'c++' in lang: return 'cpp'
+                if 'c#' in lang: return 'csharp'
+                if 'js' in lang or 'node' in lang: return 'javascript'
+                if 'py' in lang: return 'python'
+                if 'ts' in lang: return 'typescript'
+                return lang
+    except Exception as e:
+        logger.debug(f"AI language detection failed: {e}")
     
     return "python"
 

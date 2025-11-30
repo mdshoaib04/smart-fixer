@@ -2,7 +2,7 @@ from flask import render_template, request, jsonify, redirect, url_for
 from flask_login import current_user, login_user, logout_user
 from flask_socketio import emit, join_room
 from database import db
-from models import User, Friendship, FollowRequest, Follower, Notification, Message
+from models import User, Friendship, FollowRequest, Follower, Notification, Message, CodeHistory
 from datetime import datetime
 from functools import wraps
 
@@ -1112,7 +1112,7 @@ def register_socketio_events():
                 'user_id': current_user.id,
                 'is_online': False,
                 'last_seen': current_user.last_seen.isoformat()
-            }, broadcast=True)
+            })
             
             print(f"Broadcasted OFFLINE status for user {current_user.id}")
     
@@ -1132,7 +1132,7 @@ def register_socketio_events():
                 'user_id': current_user.id,
                 'is_online': True,
                 'last_seen': current_user.last_seen.isoformat()
-            }, broadcast=True)
+            })
     
     @socketio.on('disconnect')
     def on_disconnect():
@@ -1148,7 +1148,7 @@ def register_socketio_events():
                 'user_id': current_user.id,
                 'is_online': False,
                 'last_seen': current_user.last_seen.isoformat()
-            }, broadcast=True)
+            })
 
     # ---------------------------------------------------------
     # AI Features & Compiler Routes
@@ -1447,3 +1447,100 @@ def register_socketio_events():
                     process.stdin.flush()
                 except Exception as e:
                     print(f"Error writing to stdin: {e}")
+    # ---------------------------------------------------------
+
+    # Code History Routes
+    # ---------------------------------------------------------
+
+    @app.route('/api/history/save', methods=['POST'])
+    @require_login
+    def api_history_save():
+        """Save code interaction to history with smart grouping"""
+        try:
+            data = request.get_json()
+            code = data.get('code')
+            language = data.get('language')
+            action = data.get('action') # e.g., "Compile", "Review"
+            result = data.get('result')
+            
+            if not code or not action:
+                return jsonify({'success': False, 'error': 'Code and action required'}), 400
+
+            # Check for existing recent entry for this code
+            last_entry = CodeHistory.query.filter_by(user_id=current_user.id).order_by(CodeHistory.created_at.desc()).first()
+            
+            # If same code (ignoring whitespace) and recent
+            if last_entry and last_entry.code.strip() == code.strip():
+                # Update existing entry
+                if action not in last_entry.action:
+                    last_entry.action = f"{last_entry.action}, {action}"
+                last_entry.created_at = datetime.now() # Bump timestamp
+                last_entry.result = result # Update result to latest
+                db.session.commit()
+                return jsonify({'success': True, 'message': 'History updated', 'id': last_entry.id})
+            
+            # Create new entry
+            # Generate Title
+            title = "Untitled Code"
+            lines = code.strip().split('\n')
+            if lines:
+                first_line = lines[0].strip()
+                # Remove comments
+                first_line = re.sub(r'^[#///*]+', '', first_line).strip()
+                if len(first_line) > 30:
+                    title = first_line[:27] + "..."
+                elif first_line:
+                    title = first_line
+            
+            # Try to find class/function name
+            match = re.search(r'(class|def|function|func)\s+(\w+)', code)
+            if match:
+                title = match.group(2)
+            
+            new_entry = CodeHistory(
+                user_id=current_user.id,
+                code=code,
+                language=language,
+                action=action,
+                result=result,
+                title=title
+            )
+            db.session.add(new_entry)
+            db.session.commit()
+            
+            return jsonify({'success': True, 'message': 'History saved', 'id': new_entry.id})
+
+        except Exception as e:
+            print(f"Error saving history: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/history/list', methods=['GET'])
+    @require_login
+    def api_history_list():
+        """Get user's code history"""
+        try:
+            history = CodeHistory.query.filter_by(user_id=current_user.id).order_by(CodeHistory.created_at.desc()).limit(50).all()
+            
+            history_list = []
+            for item in history:
+                # Format actions for display
+                actions = item.action.split(',')
+                display_action = item.action
+                if len(actions) > 1:
+                    display_action = f"{actions[0].strip()} and more..."
+                
+                history_list.append({
+                    'id': item.id,
+                    'title': item.title or "Untitled",
+                    'code': item.code,
+                    'language': item.language,
+                    'action': display_action,
+                    'full_action': item.action,
+                    'date': item.created_at.strftime('%d:%m:%Y (%I:%M%p)'),
+                    'result': item.result
+                })
+            
+            return jsonify({'success': True, 'history': history_list})
+        except Exception as e:
+            print(f"Error listing history: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
