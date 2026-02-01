@@ -1054,102 +1054,6 @@ def register_routes():
             print(f"Error getting user status: {e}")
             return jsonify({'success': False, 'error': 'Failed to get user status'}), 500
 
-def register_socketio_events():
-    """Register Socket.IO event handlers"""
-    
-    @socketio.on('join')
-    def on_join(data):
-        """Handle user joining a chat room"""
-        room = data.get('room')
-        if room:
-            join_room(room)
-            print(f"User joined room: {room}")
-    
-    @socketio.on('chat_window_opened')
-    def on_chat_window_opened(data):
-        """Handle user opening chat window - mark as online"""
-        if current_user.is_authenticated:
-            # Log the status update request
-            page = data.get('page', 'chat')
-            status = data.get('status', 'online')
-            print(f"Received presence update from user {current_user.id}: status={status}, page={page}")
-            
-            # Mark user as online
-            current_user.is_online = True
-            current_user.last_seen = datetime.utcnow()
-            current_user.last_active = datetime.utcnow()
-            db.session.commit()
-            
-            print(f"User {current_user.id} ({current_user.username}) is now ONLINE")
-            
-            # Emit presence update to all connected clients
-            socketio.emit('user_presence_update', {
-                'user_id': current_user.id,
-                'is_online': True,
-                'last_seen': current_user.last_seen.isoformat()
-            }, broadcast=True)
-            
-            print(f"Broadcasted ONLINE status for user {current_user.id}")
-    
-    @socketio.on('chat_window_closed')
-    def on_chat_window_closed(data):
-        """Handle user closing chat window - mark as offline"""
-        if current_user.is_authenticated:
-            # Log the status update request
-            page = data.get('page', 'unknown')
-            status = data.get('status', 'offline')
-            print(f"Received presence update from user {current_user.id}: status={status}, page={page}")
-
-            # Mark user as offline
-            current_user.is_online = False
-            current_user.last_seen = datetime.utcnow()
-            db.session.commit()
-            
-            print(f"User {current_user.id} ({current_user.username}) is now OFFLINE")
-            
-            # Emit presence update to all connected clients
-            socketio.emit('user_presence_update', {
-                'user_id': current_user.id,
-                'is_online': False,
-                'last_seen': current_user.last_seen.isoformat()
-            })
-            
-            print(f"Broadcasted OFFLINE status for user {current_user.id}")
-    
-    @socketio.on('user_activity')
-    def on_user_activity(data):
-        """Handle user activity events for presence tracking"""
-        if current_user.is_authenticated:
-            # Update user's last active timestamp (keep online status)
-            current_user.last_active = datetime.utcnow()
-            current_user.last_seen = datetime.utcnow()
-            if not current_user.is_online:
-                current_user.is_online = True
-            db.session.commit()
-            
-            # Emit presence update to all connected clients
-            socketio.emit('user_presence_update', {
-                'user_id': current_user.id,
-                'is_online': True,
-                'last_seen': current_user.last_seen.isoformat()
-            })
-    
-    @socketio.on('disconnect')
-    def on_disconnect():
-        """Handle user disconnect"""
-        if current_user.is_authenticated:
-            # Mark user as offline and update last seen timestamp
-            current_user.is_online = False
-            current_user.last_seen = datetime.utcnow()
-            db.session.commit()
-            
-            # Emit presence update to all connected clients
-            socketio.emit('user_presence_update', {
-                'user_id': current_user.id,
-                'is_online': False,
-                'last_seen': current_user.last_seen.isoformat()
-            })
-
     # ---------------------------------------------------------
     # AI Features & Compiler Routes
     # ---------------------------------------------------------
@@ -1165,7 +1069,7 @@ def register_socketio_events():
             language = data.get('language', 'python')
             
             if not prompt:
-                return jsonify({'success': False, 'error': 'Search term is required'}), 400
+                return jsonify({'success': False, 'result': 'Search term is required'}), 400
                 
             from ai_models import generate_code
             code = generate_code(prompt, language)
@@ -1174,7 +1078,7 @@ def register_socketio_events():
             return jsonify({'success': True, 'result': code})
         except Exception as e:
             print(f"Error in dictionary: {e}")
-            return jsonify({'success': False, 'error': str(e)}), 500
+            return jsonify({'success': False, 'result': str(e)}), 500
 
     @app.route('/api/detect-language', methods=['POST'])
     @require_login
@@ -1185,7 +1089,7 @@ def register_socketio_events():
             code = data.get('code')
             
             if not code:
-                return jsonify({'success': False, 'error': 'Code is required'}), 400
+                return jsonify({'success': False, 'result': 'Code is required'}), 400
                 
             from ai_models import detect_language
             language = detect_language(code)
@@ -1193,6 +1097,185 @@ def register_socketio_events():
             return jsonify({'success': True, 'language': language})
         except Exception as e:
             print(f"Error in detection: {e}")
+            return jsonify({'success': False, 'result': str(e)}), 500
+
+    @app.route('/api/extract-code-from-image', methods=['POST'])
+    @require_login
+    def api_extract_code_from_image():
+        """Extract code from uploaded image using OCR with smart code detection"""
+        try:
+            import pytesseract
+            from PIL import Image
+            import io
+            import cv2
+            import numpy as np
+            from code_detector import is_code, detect_primary_language, calculate_code_score
+            
+            if 'image' not in request.files:
+                return jsonify({'success': False, 'error': 'No image file provided'}), 400
+            
+            file = request.files['image']
+            if file.filename == '':
+                return jsonify({'success': False, 'error': 'No file selected'}), 400
+            
+            # Read and process image
+            image_bytes = file.read()
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            if img is None:
+                return jsonify({'success': False, 'error': 'Invalid image format'}), 400
+            
+            # IMPROVED PREPROCESSING for OCR
+            # Convert to grayscale
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            # Increase contrast/Denoise
+            gray = cv2.threshold(cv2.medianBlur(gray, 3), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+            
+            # Perform OCR on processed image
+            extracted_text = pytesseract.image_to_string(gray)
+            
+            if not extracted_text or not extracted_text.strip():
+                return jsonify({
+                    'success': False, 
+                    'error': 'No text could be extracted from the image. Please use a clearer image.'
+                }), 400
+            
+            extracted_text = extracted_text.strip()
+            
+            # LOWER THRESHOLD for OCR (0.45) as OCR is often "noisy"
+            is_valid_code, confidence = is_code(extracted_text, threshold=0.45)
+            
+            if not is_valid_code:
+                # Log score for debugging
+                score, breakdown = calculate_code_score(extracted_text)
+                print(f"OCR Detection Fail. Text: {extracted_text[:100]}... Score: {score:.2f}, Breakdown: {breakdown}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Recognizable code was not found in this image. Ensure the code is clear and not blurry.',
+                    'confidence': confidence
+                }), 400
+            
+            # Detect language
+            language = detect_primary_language(extracted_text)
+            
+            return jsonify({
+                'success': True,
+                'code': extracted_text,
+                'language': language,
+                'confidence': confidence
+            })
+            
+        except ImportError as e:
+            print(f"Import error in OCR: {e}")
+            return jsonify({
+                'success': False, 
+                'error': 'OCR dependencies not installed. Please install pytesseract and Pillow.'
+            }), 500
+        except Exception as e:
+            print(f"Error extracting code from image: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/extract-code-from-pdf', methods=['POST'])
+    @require_login
+    def api_extract_code_from_pdf():
+        """Extract code from uploaded PDF with smart code detection"""
+        try:
+            import pdfplumber
+            import io
+            from code_detector import is_code, detect_primary_language, calculate_code_score
+            
+            if 'pdf' not in request.files:
+                return jsonify({'success': False, 'error': 'No PDF file provided'}), 400
+            
+            file = request.files['pdf']
+            if file.filename == '':
+                return jsonify({'success': False, 'error': 'No file selected'}), 400
+            
+            # Read and process PDF
+            pdf_bytes = file.read()
+            
+            extracted_text = ""
+            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        extracted_text += page_text + "\n"
+            
+            if not extracted_text or not extracted_text.strip():
+                return jsonify({
+                    'success': False, 
+                    'error': 'No text could be extracted from the PDF'
+                }), 400
+            
+            extracted_text = extracted_text.strip()
+            
+            # Check if extracted text is code (using 60% threshold)
+            is_valid_code, confidence = is_code(extracted_text, threshold=0.6)
+            
+            if not is_valid_code:
+                # Get score for debugging
+                score, breakdown = calculate_code_score(extracted_text)
+                print(f"Code detection failed for PDF. Score: {score:.2f}, Breakdown: {breakdown}")
+                return jsonify({
+                    'success': False,
+                    'error': 'The PDF does not contain recognizable programming code',
+                    'confidence': confidence
+                }), 400
+            
+            # Detect language
+            language = detect_primary_language(extracted_text)
+            
+            return jsonify({
+                'success': True,
+                'code': extracted_text,
+                'language': language,
+                'confidence': confidence
+            })
+            
+        except ImportError as e:
+            print(f"Import error in PDF processing: {e}")
+            return jsonify({
+                'success': False, 
+                'error': 'PDF processing dependencies not installed. Please install pdfplumber.'
+            }), 500
+        except Exception as e:
+            print(f"Error extracting code from PDF: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @app.route('/api/validate-code', methods=['POST'])
+    @require_login
+    def api_validate_code():
+        """Validate if text content is programming code"""
+        try:
+            from code_detector import is_code, detect_primary_language, calculate_code_score
+            
+            data = request.get_json()
+            code = data.get('code', '')
+            threshold = data.get('threshold', 0.6)  # Default 60%
+            
+            if not code or not code.strip():
+                return jsonify({
+                    'success': False,
+                    'is_code': False,
+                    'error': 'No content provided'
+                }), 400
+            
+            is_valid_code, confidence = is_code(code, threshold=threshold)
+            score, breakdown = calculate_code_score(code)
+            language = detect_primary_language(code) if is_valid_code else 'text'
+            
+            return jsonify({
+                'success': True,
+                'is_code': is_valid_code,
+                'confidence': confidence,
+                'score': score,
+                'language': language,
+                'breakdown': breakdown
+            })
+            
+        except Exception as e:
+            print(f"Error validating code: {e}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/api/translate', methods=['POST'])
@@ -1206,7 +1289,7 @@ def register_socketio_events():
             source_lang = data.get('from_lang') or data.get('source_lang') # Optional, will auto-detect if None
             
             if not code or not target_lang:
-                return jsonify({'success': False, 'error': 'Code and target language are required'}), 400
+                return jsonify({'success': False, 'result': 'Code and target language are required'}), 400
                 
             from ai_models import translate_code
             translated = translate_code(code, target_lang, source_lang)
@@ -1215,7 +1298,7 @@ def register_socketio_events():
             return jsonify({'success': True, 'result': translated})
         except Exception as e:
             print(f"Error in translation: {e}")
-            return jsonify({'success': False, 'error': str(e)}), 500
+            return jsonify({'success': False, 'result': str(e)}), 500
 
     @app.route('/api/review', methods=['POST'])
     @require_login
@@ -1227,7 +1310,7 @@ def register_socketio_events():
             language = data.get('language', 'python')
             
             if not code:
-                return jsonify({'success': False, 'error': 'Code is required'}), 400
+                return jsonify({'success': False, 'result': 'Code is required'}), 400
                 
             from ai_models import review_code
             review = review_code(code, language)
@@ -1236,7 +1319,7 @@ def register_socketio_events():
             return jsonify({'success': True, 'result': review})
         except Exception as e:
             print(f"Error in review: {e}")
-            return jsonify({'success': False, 'error': str(e)}), 500
+            return jsonify({'success': False, 'result': str(e)}), 500
 
     @app.route('/api/explain', methods=['POST'])
     @require_login
@@ -1249,7 +1332,7 @@ def register_socketio_events():
             role = data.get('role') or data.get('profession', 'student')
             
             if not code:
-                return jsonify({'success': False, 'error': 'Code is required'}), 400
+                return jsonify({'success': False, 'result': 'Code is required'}), 400
                 
             from ai_models import explain_code
             explanation = explain_code(code, language, role)
@@ -1258,7 +1341,7 @@ def register_socketio_events():
             return jsonify({'success': True, 'result': explanation})
         except Exception as e:
             print(f"Error in explanation: {e}")
-            return jsonify({'success': False, 'error': str(e)}), 500
+            return jsonify({'success': False, 'result': str(e)}), 500
 
     @app.route('/api/question', methods=['POST'])
     @require_login
@@ -1271,7 +1354,7 @@ def register_socketio_events():
             language = data.get('language', 'python')
             
             if not question:
-                return jsonify({'success': False, 'error': 'Question is required'}), 400
+                return jsonify({'success': False, 'result': 'Question is required'}), 400
                 
             from ai_models import ask_question
             answer = ask_question(question, code, language)
@@ -1280,7 +1363,7 @@ def register_socketio_events():
             return jsonify({'success': True, 'result': answer})
         except Exception as e:
             print(f"Error in question: {e}")
-            return jsonify({'success': False, 'error': str(e)}), 500
+            return jsonify({'success': False, 'result': str(e)}), 500
 
     @app.route('/api/execute', methods=['POST'])
     @require_login
@@ -1290,10 +1373,9 @@ def register_socketio_events():
             data = request.get_json()
             code = data.get('code')
             language = data.get('language', 'python').lower()
-            inputs = data.get('inputs', []) # List of inputs for interactive programs
             
             if not code:
-                return jsonify({'success': False, 'error': 'Code is required'}), 400
+                return jsonify({'success': False, 'result': 'Code is required'}), 400
 
             # Web Languages (HTML, CSS, JS) - Return content for browser/iframe
             if language in ['html', 'css', 'javascript', 'js']:
@@ -1311,7 +1393,7 @@ def register_socketio_events():
                 relative_path = temp_path.replace(os.sep, '/').split('static/')[-1]
                 return jsonify({
                     'success': True,
-                    'output': 'Web content ready',
+                    'result': 'Web content ready',
                     'type': 'web',
                     'url': f'/static/temp/{os.path.basename(temp_path)}'
                 })
@@ -1329,12 +1411,12 @@ def register_socketio_events():
                 'success': True,
                 'type': 'interactive',
                 'session_id': session_id,
-                'message': 'Interactive session started'
+                'result': 'Interactive session started'
             })
 
         except Exception as e:
             print(f"Error in execution: {e}")
-            return jsonify({'success': False, 'error': str(e)}), 500
+            return jsonify({'success': False, 'result': str(e)}), 500
 
     # Interactive Process Management
     def run_interactive_process(code, language, session_id, user_id):
@@ -1432,6 +1514,119 @@ def register_socketio_events():
                 if script_path and os.path.exists(script_path): os.remove(script_path)
                 if exe_path and os.path.exists(exe_path): os.remove(exe_path)
             except: pass
+
+def register_socketio_events():
+    """Register Socket.IO event handlers"""
+    
+    @socketio.on('join')
+    def on_join(data):
+        """Handle user joining a chat room"""
+        room = data.get('room')
+        if room:
+            join_room(room)
+            print(f"User joined room: {room}")
+    
+    @socketio.on('chat_window_opened')
+    def on_chat_window_opened(data):
+        """Handle user opening chat window - mark as online"""
+        if current_user.is_authenticated:
+            # Log the status update request
+            page = data.get('page', 'chat')
+            status = data.get('status', 'online')
+            print(f"Received presence update from user {current_user.id}: status={status}, page={page}")
+            
+            # Mark user as online
+            current_user.is_online = True
+            current_user.last_seen = datetime.utcnow()
+            current_user.last_active = datetime.utcnow()
+            db.session.commit()
+            
+            print(f"User {current_user.id} ({current_user.username}) is now ONLINE")
+            
+            # Emit presence update to all connected clients
+            socketio.emit('user_presence_update', {
+                'user_id': current_user.id,
+                'is_online': True,
+                'last_seen': current_user.last_seen.isoformat()
+            }, broadcast=True)
+            
+            print(f"Broadcasted ONLINE status for user {current_user.id}")
+    
+    @socketio.on('chat_window_closed')
+    def on_chat_window_closed(data):
+        """Handle user closing chat window - mark as offline"""
+        if current_user.is_authenticated:
+            # Log the status update request
+            page = data.get('page', 'unknown')
+            status = data.get('status', 'offline')
+            print(f"Received presence update from user {current_user.id}: status={status}, page={page}")
+
+            # Mark user as offline
+            current_user.is_online = False
+            current_user.last_seen = datetime.utcnow()
+            db.session.commit()
+            
+            print(f"User {current_user.id} ({current_user.username}) is now OFFLINE")
+            
+            # Emit presence update to all connected clients
+            socketio.emit('user_presence_update', {
+                'user_id': current_user.id,
+                'is_online': False,
+                'last_seen': current_user.last_seen.isoformat()
+            })
+            
+            print(f"Broadcasted OFFLINE status for user {current_user.id}")
+    
+    @socketio.on('user_activity')
+    def on_user_activity(data):
+        """Handle user activity events for presence tracking"""
+        if current_user.is_authenticated:
+            # Update user's last active timestamp (keep online status)
+            current_user.last_active = datetime.utcnow()
+            current_user.last_seen = datetime.utcnow()
+            if not current_user.is_online:
+                current_user.is_online = True
+            db.session.commit()
+            
+            # Emit presence update to all connected clients
+            socketio.emit('user_presence_update', {
+                'user_id': current_user.id,
+                'is_online': True,
+                'last_seen': current_user.last_seen.isoformat()
+            })
+    
+    @socketio.on('disconnect')
+    def on_disconnect():
+        """Handle user disconnect"""
+        if current_user.is_authenticated:
+            # Mark user as offline and update last seen timestamp
+            current_user.is_online = False
+            current_user.last_seen = datetime.utcnow()
+            db.session.commit()
+            
+            # Emit presence update to all connected clients
+            socketio.emit('user_presence_update', {
+                'user_id': current_user.id,
+                'is_online': False,
+                'last_seen': current_user.last_seen.isoformat()
+            })
+
+    @socketio.on('execution_input')
+    def handle_execution_input(data):
+        """Handle input for interactive execution"""
+        session_id = data.get('session_id')
+        user_input = data.get('input')
+        
+        if session_id in running_processes:
+            process = running_processes[session_id]
+            if process.poll() is None: # Process is running
+                try:
+                    process.stdin.write(user_input + '\n')
+                    process.stdin.flush()
+                except Exception as e:
+                    print(f"Error writing to stdin: {e}")
+
+
 
     @socketio.on('execution_input')
     def handle_execution_input(data):

@@ -12,6 +12,7 @@ pytesseract==0.3.10
 pdfplumber==0.10.2
 Pillow==10.0.1
 numpy<2.0.0
+gpt4all==2.8.2
 python-socketio==5.8.0
 eventlet==0.33.3
 requests==2.31.0

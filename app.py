@@ -49,6 +49,16 @@ db.init_app(app)
 # Initialize SocketIO with proper configuration
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
+# Import and initialize OAuth
+import oauth_auth
+google_bp, github_bp = oauth_auth.init_oauth(app, db)
+oauth_auth.init_login_manager(app)
+oauth_auth.setup_oauth_handlers(google_bp, github_bp)
+
+# Register OAuth blueprints - IMPORTANT: Use the correct URL prefix
+app.register_blueprint(google_bp, url_prefix="/auth")
+app.register_blueprint(github_bp, url_prefix="/auth")
+
 # Import and register routes after app and socketio are defined
 import routes
 routes.init_app(app, socketio)
@@ -57,6 +67,10 @@ with app.app_context():
     import models
     # Only create tables if they don't exist, don't drop them
     db.create_all()
+    
+    # Pre-load Local AI module for fast dictionary response
+    print("\n[AI Setup] Pre-loading Local AI module...")
+    import ai_helper
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -271,9 +285,3 @@ if __name__ == '__main__':
     
     # Use socketio.run instead of app.run for WebSocket support
     socketio.run(app, debug=True, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
-
-
-
-
-
-

@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Code Reviewer - Choose Option</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body class="upload-write-page">
     <!-- Navigation Bar -->
     <nav class="navbar">
@@ -17,7 +19,8 @@
         </div>
         <div class="nav-right">
             <button class="nav-button theme-toggle" id="themeToggle">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="themeIcon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    id="themeIcon">
                     <circle cx="12" cy="12" r="5"></circle>
                     <line x1="12" y1="1" x2="12" y2="3"></line>
                     <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -44,14 +47,14 @@
         <div class="welcome-message-above-upload">
             <h2>Hello, {{ user.first_name or user.username }}! What do you want to do today?</h2>
         </div>
-        
+
         <div class="options-grid">
             <div class="option-card" onclick="triggerFileUpload()">
                 <div class="card-icon">
                     <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
                     </svg>
                 </div>
                 <h2>Upload Code</h2>
@@ -65,8 +68,8 @@
             <div class="option-card" onclick="goToEditor()">
                 <div class="card-icon">
                     <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                     </svg>
                 </div>
                 <h2>Write Code</h2>
@@ -85,23 +88,23 @@
 
     <script>
         // Theme toggle functionality
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const themeToggle = document.getElementById('themeToggle');
             const themeIcon = document.getElementById('themeIcon');
-            
+
             // Check for saved theme or default to light
             const currentTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', currentTheme);
             updateThemeIcon(currentTheme);
-            
-            themeToggle.addEventListener('click', function() {
+
+            themeToggle.addEventListener('click', function () {
                 const currentTheme = document.documentElement.getAttribute('data-theme');
                 const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
                 document.documentElement.setAttribute('data-theme', newTheme);
                 localStorage.setItem('theme', newTheme);
                 updateThemeIcon(newTheme);
             });
-            
+
             function updateThemeIcon(theme) {
                 if (theme === 'dark') {
                     themeIcon.innerHTML = `
@@ -147,34 +150,55 @@
 
             // Get file extension
             const fileExtension = file.name.split('.').pop().toLowerCase();
-            
+
             // Define accepted file types
-            const codeFileExtensions = ['py', 'js', 'c', 'cpp', 'java', 'html', 'css', 'ts', 'bash', 'php', 'rb', 'go', 'rs', 'swift', 'kt', 'scala', 'pl', 'dart', 'hs', 'm', 'r', 'sql', 'sh'];
+            const codeFileExtensions = ['py', 'js', 'c', 'cpp', 'java', 'html', 'css', 'ts', 'bash', 'php', 'rb', 'go', 'rs', 'swift', 'kt', 'scala', 'pl', 'dart', 'hs', 'm', 'r', 'sql', 'sh', 'txt'];
             const imageFileExtensions = ['jpg', 'jpeg', 'png'];
             const pdfFileExtensions = ['pdf'];
-            
-            // Check if it's a code file
+
+            // Check if it's a code file (including .txt)
             if (codeFileExtensions.includes(fileExtension)) {
                 const reader = new FileReader();
-                reader.onload = async function(e) {
+                reader.onload = async function (e) {
                     const code = e.target.result;
 
                     if (!code || code.trim() === '') {
-                        alert('⚠ invalid code file.');
+                        alert('⚠ The file is empty. Please upload a valid code file.');
                         return;
                     }
 
-                    const response = await fetch('/api/detect-language', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({code: code})
-                    });
+                    try {
+                        // First validate that the content is actually code
+                        const validateResponse = await fetch('/api/validate-code', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code: code, threshold: 0.6 })
+                        });
 
-                    const data = await response.json();
+                        const validateData = await validateResponse.json();
 
-                    sessionStorage.setItem('uploadedCode', code);
-                    sessionStorage.setItem('detectedLanguage', data.language);
-                    window.location.href = '/editor';
+                        if (!validateData.success || !validateData.is_code) {
+                            const errorMsg = validateData.error || 'The file does not appear to contain valid programming code.';
+                            alert(`⚠ Validation Failed: ${errorMsg}\n\nPlease upload a file with actual code content (e.g., .py, .js, .java, etc.).`);
+                            return;
+                        }
+
+                        // Code is valid - detect language and proceed
+                        const response = await fetch('/api/detect-language', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code: code })
+                        });
+
+                        const data = await response.json();
+
+                        sessionStorage.setItem('uploadedCode', code);
+                        sessionStorage.setItem('detectedLanguage', data.language || validateData.language);
+                        window.location.href = '/editor';
+                    } catch (error) {
+                        console.error('Error validating code:', error);
+                        alert('⚠ An error occurred while processing your file. Please try again.');
+                    }
                 };
                 reader.readAsText(file);
             }
@@ -183,30 +207,35 @@
                 // Send to backend for OCR processing
                 const formData = new FormData();
                 formData.append('image', file);
-                
+
                 try {
                     const response = await fetch('/api/extract-code-from-image', {
                         method: 'POST',
                         body: formData
                     });
-                    
+
                     const data = await response.json();
-                    
+
                     if (!data.success) {
-                        alert('⚠ Can\'t take input of this image. Try again with an image that contains programming code.');
+                        // Show specific error from backend
+                        const errorMsg = data.error || 'The image does not contain valid programming code.';
+                        alert(`⚠ Upload Failed: ${errorMsg}\n\nPlease upload an image that clearly shows programming code.`);
                         return;
                     }
-                    
+
                     if (!data.code || data.code.trim() === '') {
-                        alert('⚠ Can\'t take input of this image. Try again with an image that contains programming code.');
+                        alert('⚠ No code could be extracted from the image. Please try with a clearer image containing programming code.');
                         return;
                     }
-                    
+
+                    // Success - code was detected and extracted
+                    console.log(`Code detected with ${(data.confidence * 100).toFixed(0)}% confidence`);
                     sessionStorage.setItem('uploadedCode', data.code);
                     sessionStorage.setItem('detectedLanguage', data.language);
                     window.location.href = '/editor';
                 } catch (error) {
-                    alert('⚠ Can\'t take input of this image. Try again with an image that contains programming code.');
+                    console.error('Image upload error:', error);
+                    alert('⚠ An error occurred while processing your image. Please try again.');
                 }
             }
             // Check if it's a PDF file
@@ -214,30 +243,35 @@
                 // Send to backend for PDF processing
                 const formData = new FormData();
                 formData.append('pdf', file);
-                
+
                 try {
                     const response = await fetch('/api/extract-code-from-pdf', {
                         method: 'POST',
                         body: formData
                     });
-                    
+
                     const data = await response.json();
-                    
+
                     if (!data.success) {
-                        alert('⚠ Can\'t take input of this file. Try again with a file that contains programming code.');
+                        // Show specific error from backend
+                        const errorMsg = data.error || 'The PDF does not contain valid programming code.';
+                        alert(`⚠ Upload Failed: ${errorMsg}\n\nPlease upload a PDF that contains programming code.`);
                         return;
                     }
-                    
+
                     if (!data.code || data.code.trim() === '') {
-                        alert('⚠ Can\'t take input of this file. Try again with a file that contains programming code.');
+                        alert('⚠ No code could be extracted from the PDF. Please try with a PDF containing programming code.');
                         return;
                     }
-                    
+
+                    // Success - code was detected and extracted
+                    console.log(`Code detected with ${(data.confidence * 100).toFixed(0)}% confidence`);
                     sessionStorage.setItem('uploadedCode', data.code);
                     sessionStorage.setItem('detectedLanguage', data.language);
                     window.location.href = '/editor';
                 } catch (error) {
-                    alert('⚠ Can\'t take input of this file. Try again with a file that contains programming code.');
+                    console.error('PDF upload error:', error);
+                    alert('⚠ An error occurred while processing your PDF. Please try again.');
                 }
             }
             // Reject all other file types
@@ -247,4 +281,5 @@
         }
     </script>
 </body>
+
 </html>
