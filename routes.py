@@ -24,12 +24,17 @@ socketio = None
 # Dictionary to store running processes
 running_processes = {}
 
+# Global Runner instance
+code_runner_instance = None
+from code_runner import CodeRunner
+
 
 def init_app(flask_app, flask_socketio):
     """Initialize the routes with the Flask app and SocketIO instances"""
-    global app, socketio
+    global app, socketio, code_runner_instance
     app = flask_app
     socketio = flask_socketio
+    code_runner_instance = CodeRunner(socketio)
     register_routes()
     register_socketio_events()
 
@@ -1626,22 +1631,24 @@ def register_socketio_events():
                 except Exception as e:
                     print(f"Error writing to stdin: {e}")
 
+    # New Code Runner Socket Events
+    @socketio.on('run_code_socket')
+    def handle_run_code_socket(data):
+        print(f"[ROUTES] run_code_socket received, sid={request.sid}")
+        join_room(request.sid)
+        code = data.get('code')
+        language = data.get('language')
+        if code_runner_instance:
+            code_runner_instance.run_code(request.sid, language, code)
+        else:
+            print("Error: code_runner_instance is None!")
 
-
-    @socketio.on('execution_input')
-    def handle_execution_input(data):
-        """Handle input for interactive execution"""
-        session_id = data.get('session_id')
+    @socketio.on('submit_input_socket')
+    def handle_submit_input_socket(data):
+        print(f"Socket received submit_input_socket: {data}")
         user_input = data.get('input')
-        
-        if session_id in running_processes:
-            process = running_processes[session_id]
-            if process.poll() is None: # Process is running
-                try:
-                    process.stdin.write(user_input + '\n')
-                    process.stdin.flush()
-                except Exception as e:
-                    print(f"Error writing to stdin: {e}")
+        if code_runner_instance:
+            code_runner_instance.send_input(request.sid, user_input)
     # ---------------------------------------------------------
 
     # Code History Routes

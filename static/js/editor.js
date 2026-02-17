@@ -289,6 +289,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize Socket.IO for real-time chat functionality
     socket = io();
 
+    // Ensure we join our own room (session_id = socket.id) for code runner
+    socket.on('connect', function () {
+        console.log('Socket connected with id:', socket.id);
+        socket.emit('join', { room: socket.id });
+    });
+
     // IMPORTANT: Mark user as offline for chat since they're on editor page (not chat page)
     // This ensures users only show as "online" when actually on the chat page
     socket.emit('chat_window_closed', {});
@@ -385,6 +391,84 @@ document.addEventListener('DOMContentLoaded', function () {
 
             showOutputActions();
             if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
+        }
+    });
+
+    // Code runner output (must be after socket = io())
+    socket.on('code_output', function (data) {
+        console.log("OUTPUT EVENT RECEIVED:", data);
+        const outputContent = document.getElementById('outputContent');
+        if (!outputContent) return;
+
+        const compilingMsg = document.getElementById('compiling-msg');
+        if (compilingMsg) compilingMsg.remove();
+
+        const span = document.createElement('span');
+        span.textContent = data.output;
+        span.style.whiteSpace = 'pre-wrap';
+        span.style.fontFamily = 'monospace';
+
+        if (data.output && data.output.toLowerCase().includes('error')) {
+            span.style.color = '#ff4757';
+        } else {
+            span.style.color = 'var(--text-color, #ffffff)';
+        }
+
+        outputContent.appendChild(span);
+        outputContent.scrollTop = outputContent.scrollHeight;
+    });
+
+    socket.on('render_html', function (data) {
+        const outputContent = document.getElementById('outputContent');
+        if (!outputContent) return;
+
+        const compilingMsg = document.getElementById('compiling-msg');
+        if (compilingMsg) compilingMsg.remove();
+
+        outputContent.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.border = 'none';
+        iframe.style.backgroundColor = '#fff';
+        outputContent.appendChild(iframe);
+
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(data.content);
+        doc.close();
+
+        isInteractiveMode = false;
+        const qnaInput = document.getElementById('qnaInput');
+        if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
+    });
+
+    socket.on('process_finished', function (data) {
+        isInteractiveMode = false;
+
+        const outputContent = document.getElementById('outputContent');
+        const qnaInput = document.getElementById('qnaInput');
+
+        if (qnaInput) {
+            qnaInput.placeholder = "Ask a question about your code...";
+        }
+
+        if (outputContent) {
+            const div = document.createElement('div');
+            if (data.status === 'success') {
+                div.textContent = '\n[Program exited successfully]';
+                div.style.color = '#2ed573';
+            } else {
+                div.textContent = '\n[Program exited with error]';
+                div.style.color = '#ff4757';
+            }
+            div.style.fontStyle = 'italic';
+            div.style.marginTop = '10px';
+            div.style.borderTop = '1px solid #333';
+            div.style.paddingTop = '5px';
+            div.style.fontFamily = 'monospace';
+            outputContent.appendChild(div);
+            outputContent.scrollTop = outputContent.scrollHeight;
         }
     });
 });
@@ -1771,3 +1855,98 @@ function showHistory() {
             historyList.innerHTML = '<div class="error">Failed to load history</div>';
         });
 }
+
+
+// ==========================================
+// FIXED INTERACTIVE EXECUTION LOGIC
+// ==========================================
+
+// Variable to track if we are in "Interactive Program Mode"
+let isInteractiveMode = false;
+
+// Override the global compileCode function
+window.compileCode = function () {
+    isInteractiveMode = true; // Enter interactive mode
+
+    const code = editor ? editor.getValue() : '';
+    if (!code || !code.trim()) {
+        alert("Please enter some code to compile.");
+        isInteractiveMode = false;
+        return;
+    }
+
+    // Prepare UI
+    const outputContent = document.getElementById('outputContent');
+    if (outputContent) {
+        outputContent.innerHTML = '';
+        const msg = document.createElement('div');
+        msg.textContent = '>> Compiling and Running...';
+        msg.style.color = '#888';
+        msg.style.fontStyle = 'italic';
+        msg.id = 'compiling-msg';
+        outputContent.appendChild(msg);
+    }
+
+    // HIDE the old separate input container if it exists
+    const oldInputContainer = document.getElementById('inputContainer');
+    if (oldInputContainer) oldInputContainer.style.display = 'none';
+
+    // Emit run event
+    console.log('Compiling code in:', currentLanguage);
+    socket.emit('run_code_socket', {
+        code: code,
+        language: currentLanguage || 'python'
+    });
+
+    // Change placeholder of Q&A input box to indicate interactive mode
+    const qnaInput = document.getElementById('qnaInput');
+    if (qnaInput) {
+        qnaInput.placeholder = "Program running... Type input here if requested.";
+        qnaInput.value = '';
+        qnaInput.focus();
+    }
+};
+
+// -------------------------------------------------------------
+// OVERRIDE THE Q&A INPUT HANDLER
+// -------------------------------------------------------------
+window.handleQnAEnter = function (event) {
+    if (event.key === 'Enter') {
+        const inputField = document.getElementById('qnaInput');
+
+        // CHECK: Are we in interactive program mode?
+        if (isInteractiveMode) {
+            const text = inputField.value;
+
+            // 1. Echo local input to output screen (green color)
+            const outputContent = document.getElementById('outputContent');
+            if (outputContent) {
+                const div = document.createElement('div');
+                div.textContent = text + '\n';
+                div.style.color = '#2ed573'; // Green for user input
+                div.style.fontWeight = 'bold';
+                outputContent.appendChild(div);
+                outputContent.scrollTop = outputContent.scrollHeight;
+            }
+
+            // 2. Emit to backend
+            socket.emit('submit_input_socket', { input: text });
+
+            // 3. Clear input
+            inputField.value = '';
+
+            // PREVENT default "Ask AI" behavior
+            event.preventDefault();
+            return;
+        }
+
+        // NO: Normal AI Question behavior
+        askQuestion();
+    }
+};
+
+
+// -------------------------------------------------------------
+// SOCKET EVENT HANDLERS (code_output, render_html, process_finished)
+// are registered inside DOMContentLoaded after socket = io()
+// -------------------------------------------------------------
