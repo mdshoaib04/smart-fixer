@@ -16,6 +16,7 @@ import shutil
 import json
 import time
 import re
+import sys
 
 # Global variables to hold app and socketio instances
 app = None
@@ -23,6 +24,8 @@ socketio = None
 
 # Dictionary to store running processes
 running_processes = {}
+# Per-session metadata for idle timeout (last_activity from output or input)
+running_process_meta = {}
 
 # Global Runner instance
 code_runner_instance = None
@@ -1382,6 +1385,20 @@ def register_routes():
             if not code:
                 return jsonify({'success': False, 'result': 'Code is required'}), 400
 
+            # HTML/JSP fix: if code starts with <!DOCTYPE or <html, render in iframe directly
+            s = code.strip()
+            if s and (s.upper().startswith('<!DOCTYPE') or s.lower().startswith('<html')):
+                os.makedirs('static/temp', exist_ok=True)
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, dir='static/temp') as f:
+                    f.write(code)
+                    temp_path = f.name
+                return jsonify({
+                    'success': True,
+                    'result': 'Web content ready',
+                    'type': 'web',
+                    'url': f'/static/temp/{os.path.basename(temp_path)}'
+                })
+
             # Web Languages (HTML, CSS, JS) - Return content for browser/iframe
             if language in ['html', 'css', 'javascript', 'js']:
                 # Create a temporary file for the web content
@@ -1408,7 +1425,10 @@ def register_routes():
             session_id = str(uuid.uuid4())
             
             # Start background thread for execution
-            thread = threading.Thread(target=run_interactive_process, args=(code, language, session_id, current_user.id))
+            thread = threading.Thread(
+                target=run_interactive_process,
+                args=(code, language, session_id, current_user.id),
+            )
             thread.daemon = True
             thread.start()
             
@@ -1425,7 +1445,10 @@ def register_routes():
 
     # Interactive Process Management
     def run_interactive_process(code, language, session_id, user_id):
-        """Run process and stream output via Socket.IO"""
+        """
+        Run process and stream output via Socket.IO, using unbuffered,
+        byte-by-byte streaming so prompts without newlines appear immediately.
+        """
         temp_dir = os.path.join(os.getcwd(), 'temp_exec')
         os.makedirs(temp_dir, exist_ok=True)
         
@@ -1439,21 +1462,36 @@ def register_routes():
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, dir=temp_dir) as f:
                     f.write(code)
                     script_path = f.name
-                command = ['python', '-u', script_path] # -u for unbuffered output
+                # Use the same interpreter that runs the server, unbuffered
+                command = [sys.executable, '-u', script_path]
                 
             elif language == 'java':
                 class_name = "Main"
                 match = re.search(r'public\s+class\s+(\w+)', code)
-                if match: class_name = match.group(1)
+                if match:
+                    class_name = match.group(1)
                 
                 java_file = os.path.join(temp_dir, f"{class_name}.java")
-                with open(java_file, 'w') as f: f.write(code)
+                with open(java_file, 'w') as f:
+                    f.write(code)
                 script_path = java_file
                 
-                # Compile
-                compile_proc = subprocess.run(['javac', java_file], capture_output=True, text=True)
+                # Compile with a reasonable timeout
+                compile_proc = subprocess.run(
+                    ['javac', java_file],
+                    capture_output=True,
+                    text=True,
+                    timeout=15
+                )
                 if compile_proc.returncode != 0:
-                    socketio.emit('execution_output', {'output': f"Compilation Error:\n{compile_proc.stderr}", 'session_id': session_id}, room=f'user_{user_id}')
+                    socketio.emit(
+                        'execution_output',
+                        {
+                            'output': f"Compilation Error:\n{compile_proc.stderr}",
+                            'session_id': session_id,
+                        },
+                        room=f'user_{user_id}',
+                    )
                     return
                 
                 command = ['java', '-cp', temp_dir, class_name]
@@ -1462,63 +1500,144 @@ def register_routes():
             elif language in ['cpp', 'c++']:
                 cpp_file = os.path.join(temp_dir, f"prog_{session_id}.cpp")
                 exe_file = os.path.join(temp_dir, f"prog_{session_id}.exe")
-                with open(cpp_file, 'w') as f: f.write(code)
+                with open(cpp_file, 'w') as f:
+                    f.write(code)
                 script_path = cpp_file
                 exe_path = exe_file
                 
-                # Compile
-                compile_proc = subprocess.run(['g++', cpp_file, '-o', exe_file], capture_output=True, text=True)
+                # Compile with a reasonable timeout
+                compile_proc = subprocess.run(
+                    ['g++', cpp_file, '-o', exe_file],
+                    capture_output=True,
+                    text=True,
+                    timeout=15
+                )
                 if compile_proc.returncode != 0:
-                    socketio.emit('execution_output', {'output': f"Compilation Error:\n{compile_proc.stderr}", 'session_id': session_id}, room=f'user_{user_id}')
+                    socketio.emit(
+                        'execution_output',
+                        {
+                            'output': f"Compilation Error:\n{compile_proc.stderr}",
+                            'session_id': session_id,
+                        },
+                        room=f'user_{user_id}',
+                    )
                     return
                 
-                command = [exe_file]
+                # Use full absolute path for Windows WinError 2
+                exe_path = os.path.abspath(exe_file)
+                command = [exe_path]
             
             else:
-                socketio.emit('execution_output', {'output': f"Language {language} not supported", 'session_id': session_id}, room=f'user_{user_id}')
+                socketio.emit(
+                    'execution_output',
+                    {
+                        'output': f"Language {language} not supported",
+                        'session_id': session_id,
+                    },
+                    room=f'user_{user_id}',
+                )
                 return
 
-            # Start Process
+            # Environment (ensure Python is unbuffered)
+            env = os.environ.copy()
+            if language == 'python':
+                env['PYTHONUNBUFFERED'] = '1'
+
+            # Start Process – binary mode, OS-level unbuffered pipes
             process = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
-                bufsize=0 # Unbuffered
+                bufsize=0,
+                text=False,
+                env=env,
             )
             
             # Store process for input handling
             running_processes[session_id] = process
-            
-            # Stream Output
+            running_process_meta[session_id] = {'last_activity': time.time()}
+
             def stream_output(pipe, type_):
-                for line in iter(pipe.readline, ''):
-                    if line:
-                        socketio.emit('execution_output', {'output': line, 'session_id': session_id, 'type': type_}, room=f'user_{user_id}')
-                pipe.close()
+                """Byte-wise streaming so prompts without newlines appear instantly."""
+                try:
+                    while True:
+                        ch = pipe.read(1)
+                        if not ch:
+                            break
+                        try:
+                            text = ch.decode('utf-8', errors='replace')
+                        except Exception:
+                            text = '?'
+                        if session_id in running_process_meta:
+                            running_process_meta[session_id]['last_activity'] = time.time()
+                        socketio.emit(
+                            'execution_output',
+                            {'output': text, 'session_id': session_id, 'type': type_},
+                            room=f'user_{user_id}',
+                        )
+                finally:
+                    try:
+                        pipe.close()
+                    except Exception:
+                        pass
             
             stdout_thread = threading.Thread(target=stream_output, args=(process.stdout, 'stdout'))
             stderr_thread = threading.Thread(target=stream_output, args=(process.stderr, 'stderr'))
             stdout_thread.start()
             stderr_thread.start()
+
+            # Idle timeout: only kill when no output AND no input for 2–3 min
+            IDLE_TIMEOUT_SECONDS = 150
+            while True:
+                if process.poll() is not None:
+                    break
+                now = time.time()
+                last_activity = running_process_meta.get(session_id, {}).get('last_activity', now)
+                if now - last_activity > IDLE_TIMEOUT_SECONDS:
+                    try:
+                        process.kill()
+                    except Exception:
+                        pass
+                    socketio.emit(
+                        'execution_output',
+                        {
+                            'output': f"\nExecution idle timed out after {IDLE_TIMEOUT_SECONDS} seconds (no output, no input).\n",
+                            'session_id': session_id,
+                            'type': 'stderr',
+                        },
+                        room=f'user_{user_id}',
+                    )
+                    break
+                time.sleep(0.1)
             
-            process.wait()
             stdout_thread.join()
             stderr_thread.join()
             
             socketio.emit('execution_finished', {'session_id': session_id}, room=f'user_{user_id}')
             
         except Exception as e:
-            socketio.emit('execution_output', {'output': f"Execution Error: {str(e)}", 'session_id': session_id}, room=f'user_{user_id}')
+            socketio.emit(
+                'execution_output',
+                {
+                    'output': f"Execution Error: {str(e)}",
+                    'session_id': session_id,
+                },
+                room=f'user_{user_id}',
+            )
         finally:
             if session_id in running_processes:
                 del running_processes[session_id]
+            if session_id in running_process_meta:
+                del running_process_meta[session_id]
             # Cleanup files
             try:
-                if script_path and os.path.exists(script_path): os.remove(script_path)
-                if exe_path and os.path.exists(exe_path): os.remove(exe_path)
-            except: pass
+                if script_path and os.path.exists(script_path):
+                    os.remove(script_path)
+                if exe_path and os.path.exists(exe_path):
+                    os.remove(exe_path)
+            except Exception:
+                pass
 
 def register_socketio_events():
     """Register Socket.IO event handlers"""
@@ -1618,16 +1737,17 @@ def register_socketio_events():
 
     @socketio.on('execution_input')
     def handle_execution_input(data):
-        """Handle input for interactive execution"""
+        """Handle input for interactive execution - accept stdin anytime while process alive"""
         session_id = data.get('session_id')
         user_input = data.get('input')
-        
         if session_id in running_processes:
             process = running_processes[session_id]
-            if process.poll() is None: # Process is running
+            if process.poll() is None and process.stdin:
                 try:
-                    process.stdin.write(user_input + '\n')
+                    process.stdin.write((user_input or '') + '\n')
                     process.stdin.flush()
+                    if session_id in running_process_meta:
+                        running_process_meta[session_id]['last_activity'] = time.time()
                 except Exception as e:
                     print(f"Error writing to stdin: {e}")
 

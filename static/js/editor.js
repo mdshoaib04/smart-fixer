@@ -66,6 +66,9 @@ let currentProfession = 'student';
 let socket;
 let languageDetectionTimeout = null;
 
+// Interactive execution state for the Socket.IO runner
+let isInteractiveMode = false;
+
 // Update the display of the detected language
 function updateLanguageDisplay(language) {
     // Language display has been removed per user request
@@ -344,7 +347,7 @@ document.addEventListener('DOMContentLoaded', function () {
         updateChatBadge();
         displayMessage(data);
     });
-    // Listen for execution output (interactive programs)
+    // Listen for execution output (legacy /api/execute path)
     socket.on('execution_output', function (data) {
         if (data.session_id === currentSessionId) {
             const outputContent = document.getElementById('outputContent');
@@ -364,19 +367,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Auto-scroll to bottom
             outputContent.scrollTop = outputContent.scrollHeight;
-
-            // Check if we should show input container
-            if (shouldShowInputContainer(data.output)) {
-                // Focus input if it looks like a prompt
-                if (qnaInput) {
-                    qnaInput.placeholder = "Enter input for your program...";
-                    qnaInput.focus();
-                }
-            }
         }
     });
 
-    // Listen for execution finished
+    // Listen for execution finished (legacy /api/execute path)
     socket.on('execution_finished', function (data) {
         if (data.session_id === currentSessionId) {
             isInteractiveProgram = false;
@@ -390,7 +384,8 @@ document.addEventListener('DOMContentLoaded', function () {
             outputContent.scrollTop = outputContent.scrollHeight;
 
             showOutputActions();
-            if (qnaInput) qnaInput.placeholder = "Ask a question about your code...";
+            const qnaInputEl = document.getElementById('qnaInput');
+            if (qnaInputEl) qnaInputEl.placeholder = "Ask a question about your code...";
         }
     });
 
@@ -408,13 +403,32 @@ document.addEventListener('DOMContentLoaded', function () {
         span.style.whiteSpace = 'pre-wrap';
         span.style.fontFamily = 'monospace';
 
-        if (data.output && data.output.toLowerCase().includes('error')) {
+        if (data.type === 'error' || data.type === 'stderr') {
+            span.className = 'code-error';
             span.style.color = '#ff4757';
         } else {
             span.style.color = 'var(--text-color, #ffffff)';
         }
 
         outputContent.appendChild(span);
+        outputContent.scrollTop = outputContent.scrollHeight;
+    });
+
+    socket.on('code_suggestion', function (data) {
+        console.log("SUGGESTION RECEIVED:", data);
+        const outputContent = document.getElementById('outputContent');
+        if (!outputContent) return;
+
+        const suggestionDiv = document.createElement('div');
+        suggestionDiv.className = 'code-suggestion';
+        suggestionDiv.textContent = `Suggestion: ${data.suggestion}`;
+        suggestionDiv.style.color = '#2ed573';
+        suggestionDiv.style.fontFamily = 'monospace';
+        suggestionDiv.style.marginTop = '5px';
+        suggestionDiv.style.paddingLeft = '10px';
+        suggestionDiv.style.borderLeft = '3px solid #2ed573';
+        
+        outputContent.appendChild(suggestionDiv);
         outputContent.scrollTop = outputContent.scrollHeight;
     });
 
@@ -1858,15 +1872,12 @@ function showHistory() {
 
 
 // ==========================================
-// FIXED INTERACTIVE EXECUTION LOGIC
+// FIXED INTERACTIVE EXECUTION LOGIC (Socket.IO runner)
 // ==========================================
 
-// Variable to track if we are in "Interactive Program Mode"
-let isInteractiveMode = false;
-
-// Override the global compileCode function
+// Override the global compileCode function to use the Socket.IO code runner
 window.compileCode = function () {
-    isInteractiveMode = true; // Enter interactive mode
+    isInteractiveMode = true;
 
     const code = editor ? editor.getValue() : '';
     if (!code || !code.trim()) {
@@ -1898,49 +1909,52 @@ window.compileCode = function () {
         language: currentLanguage || 'python'
     });
 
-    // Change placeholder of Q&A input box to indicate interactive mode
     const qnaInput = document.getElementById('qnaInput');
     if (qnaInput) {
-        qnaInput.placeholder = "Program running... Type input here if requested.";
+        qnaInput.placeholder = "Program running... Type input here and press Enter";
         qnaInput.value = '';
-        qnaInput.focus();
+        qnaInput.disabled = false;
     }
 };
 
 // -------------------------------------------------------------
-// OVERRIDE THE Q&A INPUT HANDLER
+// Q&A INPUT HANDLER: when process running, always send to program
 // -------------------------------------------------------------
 window.handleQnAEnter = function (event) {
     if (event.key === 'Enter') {
         const inputField = document.getElementById('qnaInput');
 
-        // CHECK: Are we in interactive program mode?
         if (isInteractiveMode) {
             const text = inputField.value;
+            if (text === null || text === undefined) {
+                event.preventDefault();
+                return;
+            }
 
-            // 1. Echo local input to output screen (green color)
+            // 1. Echo local input to output screen (green color with > prefix)
             const outputContent = document.getElementById('outputContent');
             if (outputContent) {
                 const div = document.createElement('div');
-                div.textContent = text + '\n';
-                div.style.color = '#2ed573'; // Green for user input
+                div.className = 'user-input-echo';
+                div.textContent = '> ' + (text !== null && text !== undefined ? text : '') + '\n';
+                div.style.color = '#2ed573';
                 div.style.fontWeight = 'bold';
+                div.style.fontFamily = 'monospace';
                 outputContent.appendChild(div);
                 outputContent.scrollTop = outputContent.scrollHeight;
             }
 
-            // 2. Emit to backend
+            // 2. Emit to backend immediately (stdin anytime while process running)
             socket.emit('submit_input_socket', { input: text });
 
             // 3. Clear input
             inputField.value = '';
 
-            // PREVENT default "Ask AI" behavior
             event.preventDefault();
             return;
         }
 
-        // NO: Normal AI Question behavior
+        // Normal Q&A behavior when no interactive program is running
         askQuestion();
     }
 };
