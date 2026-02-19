@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <link rel="stylesheet" href="/static/css/time_tracker.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body data-theme="light">
     <!-- Navigation Bar -->
     <nav class="nav-bar">
@@ -28,6 +30,13 @@
     <div class="time-tracker-container">
         <!-- Flexible Time Tracker Interface -->
         <div class="time-tracker-interface">
+            <!-- Session Timer -->
+            <div class="session-timer-container"
+                style="text-align: center; margin-bottom: 15px; font-family: monospace; font-size: 1.2rem; background: rgba(0,0,0,0.05); padding: 10px; border-radius: 8px;">
+                <span style="font-size: 0.9rem; opacity: 0.7; font-family: sans-serif;">Session Time:</span>
+                <span id="session-timer-display" style="font-weight: bold; color: #4CAF50;">00:00</span>
+            </div>
+
             <!-- Header with summary and controls -->
             <div class="time-tracker-header">
                 <div>
@@ -75,14 +84,14 @@
                                     <div class="month-labels" id="monthLabels">
                                         <!-- Month labels will be populated by JavaScript -->
                                     </div>
-                                    
+
                                     <!-- Contribution Grid -->
                                     <div class="contribution-grid" id="contributionGrid">
                                         <!-- Grid will be populated by JavaScript -->
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Contribution Legend -->
                             <div class="contribution-legend">
                                 <span>Less</span>
@@ -153,6 +162,7 @@
         </div>
     </div>
 
+    <script src="/static/js/activity_tracker.js"></script>
     <script src="/static/js/time_tracker.js"></script>
     <script>
         function goBack() {
@@ -161,4 +171,5 @@
         }
     </script>
 </body>
+
 </html>

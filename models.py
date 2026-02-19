@@ -32,6 +32,11 @@ class User(UserMixin, db.Model):
     location = db.Column(db.String(255), nullable=True)
     location_enabled = db.Column(db.Boolean, default=False)
     
+    # Streak tracking
+    current_streak = db.Column(db.Integer, default=0)
+    longest_streak = db.Column(db.Integer, default=0)
+    last_streak_date = db.Column(db.Date, nullable=True)
+    
     posts = db.relationship('Post', backref='author', lazy=True, cascade='all, delete-orphan')
     code_history = db.relationship('CodeHistory', backref='user', lazy=True, cascade='all, delete-orphan')
     sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender', lazy=True, cascade='all, delete-orphan')
@@ -143,16 +148,30 @@ class Friendship(db.Model):
     friend = db.relationship('User', foreign_keys=[friend_id], backref='received_requests')
     __table_args__ = (UniqueConstraint('user_id', 'friend_id', name='uq_user_friend'),)
 
+class Conversation(db.Model):
+    __tablename__ = 'conversations'
+    id = db.Column(db.Integer, primary_key=True)
+    user1_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    user2_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    user1 = db.relationship('User', foreign_keys=[user1_id])
+    user2 = db.relationship('User', foreign_keys=[user2_id])
+    messages = db.relationship('Message', backref='conversation', lazy=True, cascade='all, delete-orphan')
+
 class Message(db.Model):
     __tablename__ = 'messages'
     id = db.Column(db.Integer, primary_key=True)
+    conversation_id = db.Column(db.Integer, db.ForeignKey('conversations.id'), nullable=True)
     sender_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
     receiver_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
     group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=True)
     content = db.Column(db.Text, nullable=True)  # Allow empty content for file/code-only messages
+    message_type = db.Column(db.String(50), default='text') # text, image, video, file, code
     code_snippet = db.Column(db.Text, nullable=True)
     file_attachment = db.Column(db.String(255), nullable=True)  # Path to attached file
     file_type = db.Column(db.String(50), nullable=True)  # Type of file (image, video, pdf, etc.)
+    is_read = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
     
     receiver = db.relationship('User', foreign_keys=[receiver_id], backref='received_messages')
@@ -165,7 +184,7 @@ class Group(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
     
     members = db.relationship('GroupMember', backref='group', lazy=True, cascade='all, delete-orphan')
-    messages = db.relationship('Message', backref='group', lazy=True, cascade='all, delete-orphan')
+    messages = db.relationship('Message', backref='group_rel', lazy=True, cascade='all, delete-orphan')
 
 class GroupMember(db.Model):
     __tablename__ = 'group_members'
@@ -180,14 +199,16 @@ class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
     message = db.Column(db.Text, nullable=False)
-    type = db.Column(db.String, nullable=False)  # follow_request, accepted, follow_back, like, comment, system_update
+    type = db.Column(db.String, nullable=False)  # follow_request, accepted, follow_back, like, comment, system_update, post
     from_user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)
     follow_request_id = db.Column(db.Integer, db.ForeignKey('follow_requests.id'), nullable=True)  # Link to follow request
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=True) # Link to post
     read_status = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now)
     
     from_user = db.relationship('User', foreign_keys=[from_user_id])
     follow_request = db.relationship('FollowRequest', foreign_keys=[follow_request_id])
+    post = db.relationship('Post', foreign_keys=[post_id])
 
 class CodeHistory(db.Model):
     __tablename__ = 'code_history'
@@ -205,4 +226,6 @@ class TimeSpent(db.Model):
     user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
     minutes = db.Column(db.Integer, default=0)
+    total_seconds = db.Column(db.Integer, default=0)
+    last_updated = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     __table_args__ = (UniqueConstraint('user_id', 'date', name='uq_user_date'),)

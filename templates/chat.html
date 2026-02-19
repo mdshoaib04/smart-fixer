@@ -207,6 +207,25 @@
             background-color: #ccc;
         }
 
+        .unread-badge {
+            background-color: #ff3b30;
+            color: white;
+            font-size: 0.7rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 10px;
+            min-width: 14px;
+            text-align: center;
+            margin-left: auto;
+        }
+
+        .chat-item-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            margin-left: 0.5rem;
+        }
+
         .chat-main {
             flex: 1;
             display: flex;
@@ -579,11 +598,12 @@
 
     <script>
         // Navigation history management
+        const currentUserId = "{{ user.id }}";
         let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
         let socket;
         let currentChatUser = null;
         let allChats = [];
-        let chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '{}'); // Store chat history
+        let chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '{}');
         let searchTimeout;
 
         function updateNavigationHistory() {
@@ -679,13 +699,13 @@
 
         async function loadChats() {
             try {
-                const response = await fetch('/api/friends');
-                const friends = await response.json();
-                allChats = friends;
-                displayChats(friends);
+                const response = await fetch('/api/chat/conversations');
+                const convs = await response.json();
+                allChats = convs;
+                displayChats(convs);
 
                 // Auto-select last chat or show friend selection for first-time users
-                autoSelectChat(friends);
+                autoSelectChat(convs);
             } catch (error) {
                 console.error('Error loading chats:', error);
                 // Show friend selection on error as fallback
@@ -717,23 +737,38 @@
         function displayChats(chats) {
             const chatList = document.getElementById('chatList');
             if (chats && chats.length > 0) {
-                chatList.innerHTML = chats.map(friend => `
-                    <div class="chat-item">
-                        <img src="${friend.image || 'https://via.placeholder.com/40'}" alt="Profile" class="chat-avatar" onclick="window.location.href='/user/${friend.id}'" style="cursor: pointer;">
-                        <div class="chat-info" onclick="openChat('${friend.id}')" style="cursor: pointer;">
-                            <div class="chat-name" onclick="window.location.href='/user/${friend.id}'; event.stopPropagation();" style="cursor: pointer;">${friend.name}</div>
-                            <div class="chat-username">@${friend.username}</div>
-                        </div>
-                        <div class="online-status-indicator" id="online-status-${friend.id}"></div>
-                    </div>
-                `).join('');
+                chatList.innerHTML = chats.map(conv => {
+                    // conv might be just a friend object if from search
+                    const friend = conv.other_user || conv;
+                    const lastMsg = conv.last_message || { content: '', type: 'text', timestamp: null };
+                    const timeStr = lastMsg.timestamp ? formatTime(lastMsg.timestamp) : '';
+                    const unreadCount = conv.unread_count || 0;
 
-                // Fetch and update status for each friend
-                chats.forEach(friend => {
-                    updateFriendStatus(friend.id);
-                });
+                    let lastMsgContent = lastMsg.content;
+                    if (lastMsg.type === 'image') lastMsgContent = '📷 Photo';
+                    else if (lastMsg.type === 'video') lastMsgContent = '🎥 Video';
+                    else if (lastMsg.type === 'code') lastMsgContent = '💻 Code';
+                    else if (lastMsg.type === 'file') lastMsgContent = '📎 File';
+
+                    return `
+                        <div class="chat-item ${currentChatUser === friend.id ? 'active' : ''}" id="chat-item-${friend.id}">
+                            <img src="${friend.image || 'https://via.placeholder.com/40'}" alt="Profile" class="chat-avatar" onclick="window.location.href='/user/${friend.id}'" style="cursor: pointer;">
+                            <div class="chat-info" onclick="openChat('${friend.id}')" style="cursor: pointer;">
+                                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                    <div class="chat-name">${friend.name}</div>
+                                    <div class="chat-time">${timeStr}</div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div class="chat-last-message">${lastMsgContent}</div>
+                                    ${unreadCount > 0 ? `<div class="unread-badge" id="unread-badge-${friend.id}">${unreadCount}</div>` : `<div class="unread-badge" id="unread-badge-${friend.id}" style="display: none;"></div>`}
+                                </div>
+                            </div>
+                            <div class="online-status-indicator ${friend.is_online ? 'online' : 'offline'}" id="online-status-${friend.id}"></div>
+                        </div>
+                    `;
+                }).join('');
             } else {
-                chatList.innerHTML = '<div class="no-chats">No users found. <button onclick="startNewChat()" class="new-chat-link">Find users to chat with</button></div>';
+                chatList.innerHTML = '<div class="no-chats">No messages yet. <button onclick="startNewChat()" class="new-chat-link">Start a conversation</button></div>';
             }
         }
 
@@ -749,36 +784,40 @@
             // Remove active class from all chat items
             document.querySelectorAll('.chat-item').forEach(item => item.classList.remove('active'));
 
-            // Find and activate the chat item for this user
-            const chatItem = document.querySelector(`.chat-info[onclick*="'${userId}'"]`);
+            const chatItem = document.getElementById(`chat-item-${userId}`);
             if (chatItem) {
-                // Find the parent chat-item and add active class
-                const parentItem = chatItem.closest('.chat-item');
-                if (parentItem) {
-                    parentItem.classList.add('active');
-                }
+                chatItem.classList.add('active');
             }
 
             currentChatUser = userId;
 
-            // Join the chat room
-            socket.emit('join', { room: `chat_${userId}` });
+            // Clear unread badge
+            const badge = document.getElementById(`unread-badge-${userId}`);
+            if (badge) {
+                badge.style.display = 'none';
+                badge.textContent = '0';
+            }
 
             // Update chat header info
-            const friend = allChats.find(f => f.id === userId);
+            let friend = null;
+            for (let conv of allChats) {
+                if (conv.other_user && conv.other_user.id === userId) {
+                    friend = conv.other_user;
+                    break;
+                } else if (conv.id === userId) { // Fallback for search results
+                    friend = conv;
+                    break;
+                }
+            }
+
             if (friend) {
                 document.querySelector('.current-chat-name').textContent = friend.name;
                 document.querySelector('.current-chat-avatar').src = friend.image || 'https://via.placeholder.com/32';
-                // Fetch real status instead of hardcoding
-                updateFriendStatus(userId);
+                updateUserPresenceIndicator(friend);
             }
 
             // Load chat messages
             await loadChatMessages(userId);
-
-            // Update chat history
-            chatHistory.lastChat = userId;
-            localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
         }
 
         async function loadChatMessages(userId) {
@@ -796,16 +835,18 @@
             chatMessages.innerHTML = messages.map(msg => {
                 let messageContent = '';
 
-                // Handle file attachments
+                // Handle file attachments or rich types
+                const type = msg.message_type || (msg.file_attachment ? msg.file_type : 'text');
+
                 if (msg.file_attachment) {
-                    if (msg.file_type === 'image') {
+                    if (type === 'image') {
                         messageContent = `<img src="${msg.file_attachment}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" onclick="openImageLightbox('${msg.file_attachment}')">`;
-                    } else if (msg.file_type === 'video') {
+                    } else if (type === 'video') {
                         messageContent = `<video controls style="max-width: 300px; max-height: 300px; border-radius: 8px;">
                             <source src="${msg.file_attachment}" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>`;
-                    } else if (msg.file_type === 'pdf') {
+                    } else if (type === 'pdf') {
                         messageContent = `<a href="${msg.file_attachment}" target="_blank" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">
                             📄 PDF Document
                         </a>`;
@@ -814,15 +855,17 @@
                             📎 Download File
                         </a>`;
                     }
-                } else if (msg.code_snippet) {
-                    messageContent = `<div class="message-text code-message"><pre><code>${escapeHtml(msg.code_snippet)}</code></pre></div>`;
+                } else if (type === 'code' || msg.code_snippet) {
+                    messageContent = `<div class="message-text code-message"><pre><code>${escapeHtml(msg.code_snippet || msg.content)}</code></pre></div>`;
                 } else {
                     messageContent = msg.content || '';
                 }
 
+                const isSent = String(msg.sender_id) === String(currentUserId);
+
                 return `
-                    <div class="message ${msg.sender_id === '{{ user.id }}' ? 'sent' : 'received'}">
-                        ${msg.sender_id !== '{{ user.id }}' ? `<img src="${msg.sender_image || 'https://via.placeholder.com/32'}" alt="Profile" class="message-avatar">` : ''}
+                    <div class="message ${isSent ? 'sent' : 'received'}">
+                        ${!isSent ? `<img src="${msg.sender_image || 'https://via.placeholder.com/32'}" alt="Profile" class="message-avatar">` : ''}
                         <div class="message-content">
                             <div class="message-text">${messageContent}</div>
                             <div class="message-time">${formatTime(msg.created_at)}</div>
@@ -835,46 +878,29 @@
 
         function displayMessage(data) {
             const chatMessages = document.getElementById('chatMessages');
-            const isCurrentUser = data.sender_id === '{{ user.id }}';
+            const isCurrentUser = String(data.sender_id) === String(currentUserId);
 
             let messageContent = '';
+            const type = data.message_type || (data.file_attachment ? data.file_type : 'text');
 
-            // Handle file attachments
             if (data.file_attachment) {
-                if (data.file_type === 'image') {
+                if (type === 'image') {
                     messageContent = `<img src="${data.file_attachment}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" onclick="openImageLightbox('${data.file_attachment}')">`;
-                } else if (data.file_type === 'video') {
+                } else if (type === 'video') {
+                    const videoType = data.file_attachment.endsWith('.webm') ? 'video/webm' : 'video/mp4';
                     messageContent = `<video controls style="max-width: 300px; max-height: 300px; border-radius: 8px;">
-                        <source src="${data.file_attachment}" type="video/mp4">
+                        <source src="${data.file_attachment}" type="${videoType}">
                         Your browser does not support the video tag.
                     </video>`;
-                } else if (data.file_type === 'pdf') {
-                    messageContent = `<a href="${data.file_attachment}" target="_blank" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 5px;">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14,2 14,8 20,8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10,9 9,9 8,9"/>
-                        </svg>
-                        PDF Document
-                    </a>`;
                 } else {
                     messageContent = `<a href="${data.file_attachment}" target="_blank" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 5px;">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14,2 14,8 20,8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10,9 9,9 8,9"/>
-                        </svg>
-                        Download File
+                        📎 ${type.toUpperCase()} File
                     </a>`;
                 }
-            } else if (data.code_snippet) {
-                messageContent = `<div class="message-text code-message"><pre><code>${escapeHtml(data.code_snippet)}</code></pre></div>`;
+            } else if (type === 'code' || data.code_snippet) {
+                messageContent = `<div class="message-text code-message"><pre><code>${escapeHtml(data.code_snippet || data.content)}</code></pre></div>`;
             } else {
-                messageContent = data.message;
+                messageContent = data.content || data.message;
             }
 
             const messageElement = document.createElement('div');
@@ -900,9 +926,7 @@
                 return;
             }
 
-            // If there's a message, send it
             if (message) {
-                // Use the new API endpoint instead of socket emit
                 fetch('/api/send-message', {
                     method: 'POST',
                     headers: {
@@ -911,25 +935,20 @@
                     body: JSON.stringify({
                         receiver_id: currentChatUser,
                         content: message,
-                        code_snippet: null
+                        message_type: 'text'
                     })
                 })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
+                    .then(response => response.json())
                     .then(data => {
                         if (data.success) {
                             input.value = '';
+                            // Chat list will be updated via socket listener
                         } else {
                             alert('Failed to send message: ' + (data.error || 'Unknown error'));
                         }
                     })
                     .catch(error => {
                         console.error('Error sending message:', error);
-                        alert('Failed to send message. Please try again.');
                     });
             }
         }
@@ -950,77 +969,54 @@
 
             if (!currentChatUser) {
                 alert('Please select a chat first.');
-                document.getElementById('fileInput').value = ''; // Clear the input
+                event.target.value = '';
                 return;
             }
 
             const formData = new FormData();
             formData.append('file', file);
 
-            // Show uploading message
+            // Instant UI feedback
             const chatMessages = document.getElementById('chatMessages');
-            const uploadingMessage = document.createElement('div');
-            uploadingMessage.className = 'message sent';
-            uploadingMessage.innerHTML = `<div class="message-content"><div class="message-text">Uploading file...</div></div>`;
-            chatMessages.appendChild(uploadingMessage);
+            const placeholder = document.createElement('div');
+            placeholder.className = 'message sent';
+            placeholder.innerHTML = `<div class="message-content"><div class="message-text">Uploading ${file.name}...</div></div>`;
+            chatMessages.appendChild(placeholder);
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
-            // Upload file first
+            // Step 1: Upload to server
             fetch('/api/upload-file', {
                 method: 'POST',
                 body: formData
             })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
+                .then(res => res.json())
                 .then(data => {
-                    // Remove uploading message
-                    uploadingMessage.remove();
+                    if (!data.success) throw new Error(data.error || 'Upload failed');
 
-                    if (data.success) {
-                        // Send message with file attachment
-                        return fetch('/api/send-message', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                receiver_id: currentChatUser,
-                                content: '',
-                                file_attachment: data.file_path,
-                                file_type: data.file_type
-                            })
+                    // Step 2: Send message with file metadata
+                    return fetch('/api/send-message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            receiver_id: currentChatUser,
+                            content: '',
+                            message_type: data.file_type || 'file',
+                            file_attachment: data.file_path,
+                            file_type: data.file_type
                         })
-                            .then(response => {
-                                if (!response.ok) {
-                                    throw new Error('Network response was not ok');
-                                }
-                                return response.json();
-                            })
-                            .then(sendData => {
-                                if (sendData.success) {
-                                    // Clear file input
-                                    document.getElementById('fileInput').value = '';
-                                } else {
-                                    alert('Failed to send file: ' + (sendData.error || 'Unknown error'));
-                                }
-                            });
-                    } else {
-                        alert('Failed to upload file: ' + (data.error || 'Unknown error'));
-                        // Clear file input
-                        document.getElementById('fileInput').value = '';
-                    }
+                    });
                 })
-                .catch(error => {
-                    // Remove uploading message
-                    uploadingMessage.remove();
-                    console.error('Error uploading file:', error);
-                    alert('Failed to upload file. Please try again.');
-                    // Clear file input
-                    document.getElementById('fileInput').value = '';
+                .then(res => res.json())
+                .then(sendRes => {
+                    placeholder.remove();
+                    if (!sendRes.success) throw new Error(sendRes.error || 'Message failed');
+                    event.target.value = ''; // Success reset
+                })
+                .catch(err => {
+                    placeholder.remove();
+                    console.error('Chat Upload Error:', err);
+                    alert('Upload failed: ' + err.message);
+                    event.target.value = '';
                 });
         }
 
@@ -1043,18 +1039,13 @@
                     body: JSON.stringify({
                         receiver_id: currentChatUser,
                         content: 'Check out this code:',
+                        message_type: 'code',
                         code_snippet: code
                     })
                 })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
+                    .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            // Clear the input
                             document.getElementById('chatInput').value = '';
                         } else {
                             alert('Failed to share code: ' + (data.error || 'Unknown error'));
@@ -1062,7 +1053,6 @@
                     })
                     .catch(error => {
                         console.error('Error sharing code:', error);
-                        alert('Failed to share code. Please try again.');
                     });
             } else {
                 alert('No code available to share. Please upload or write some code first.');
@@ -1116,43 +1106,43 @@
             // Initialize Socket.IO
             socket = io();
 
+            // Join user's personal room for events
+            socket.on('connect', () => {
+                console.log('Socket connected');
+                // Backend now joins us to user_{{ user.id }} automatically on connect,
+                // but we can explicitly emit to be safe if desired.
+                socket.emit('join', { room: `user_${currentUserId}` });
+                socket.emit('chat_window_opened', { status: 'online', page: 'chat' });
+            });
+
             // Socket event listeners
-            socket.on('receive_message', function (data) {
-                // Check if this message is for the current chat
-                if (currentChatUser && (data.sender_id === currentChatUser || data.receiver_id === currentChatUser)) {
+            socket.on('new_message', function (data) {
+                console.log('New message received:', data);
+                // If it's for current chat, display it immediately
+                if (currentChatUser && (String(data.sender_id) === String(currentChatUser) || String(data.receiver_id) === String(currentChatUser))) {
                     displayMessage(data);
+                }
+                // Update chat list for snippets and unread badges
+                loadChats();
+            });
+
+            socket.on('unread_count_update', function (data) {
+                console.log('Unread count update:', data);
+                loadChats();
+            });
+
+            socket.on('unread_badge_update', function (data) {
+                // Update general navbar badge if it exists
+                const badge = document.querySelector('.notification-badge');
+                if (badge) {
+                    badge.textContent = data.count > 0 ? data.count : '';
+                    badge.style.display = data.count > 0 ? 'block' : 'none';
                 }
             });
 
-            socket.on('user_joined', (data) => {
-                console.log(data.user + ' joined the chat');
-            });
-
-            socket.on('user_left', (data) => {
-                console.log(data.user + ' left the chat');
-            });
-
-            // Listen for user presence updates
             socket.on('user_presence_update', function (data) {
                 updateUserPresenceIndicator(data);
             });
-
-            // Listen for new notifications
-            socket.on('new_notification', function (data) {
-                if (data.user_id === '{{ user.id }}') {
-                    // Show notification alert
-                    alert('You have a new notification!');
-                }
-            });
-
-            // Join user's personal room for notifications
-            socket.emit('join', { room: `user_{{ user.id }}` });
-
-            // Join user's own chat room to receive sent messages in real-time
-            socket.emit('join', { room: `chat_{{ user.id }}` });
-
-            // Send chat window opened event to update presence
-            socket.emit('chat_window_opened', { status: 'online', page: 'chat' });
 
             // Load chats
             loadChats();
@@ -1189,18 +1179,7 @@
                     statusIndicator.title = 'Online';
                 } else {
                     statusIndicator.className = 'online-status-indicator offline';
-                    if (data.last_seen) {
-                        const lastSeen = new Date(data.last_seen);
-                        // Format as 12-hour with AM/PM
-                        const hours = lastSeen.getHours();
-                        const minutes = lastSeen.getMinutes();
-                        const ampm = hours >= 12 ? 'PM' : 'AM';
-                        const hours12 = hours % 12 || 12;
-                        const minutesStr = minutes.toString().padStart(2, '0');
-                        statusIndicator.title = `Was online at ${hours12}:${minutesStr} ${ampm}`;
-                    } else {
-                        statusIndicator.title = 'Offline';
-                    }
+                    statusIndicator.title = formatLastSeenTooltip(data.last_seen);
                 }
             }
 
@@ -1212,22 +1191,41 @@
                         statusElement.textContent = 'Online';
                         statusElement.style.color = '#4CAF50';
                     } else {
-                        if (data.last_seen) {
-                            const lastSeen = new Date(data.last_seen);
-                            // Format as 12-hour with AM/PM
-                            const hours = lastSeen.getHours();
-                            const minutes = lastSeen.getMinutes();
-                            const ampm = hours >= 12 ? 'PM' : 'AM';
-                            const hours12 = hours % 12 || 12;
-                            const minutesStr = minutes.toString().padStart(2, '0');
-                            statusElement.textContent = `Was online at ${hours12}:${minutesStr} ${ampm}`;
-                        } else {
-                            statusElement.textContent = 'Offline';
-                        }
+                        statusElement.textContent = formatLastSeenLabel(data.last_seen);
                         statusElement.style.color = '#888';
                     }
                 }
             }
+        }
+
+        function formatLastSeenTooltip(lastSeenIso) {
+            if (!lastSeenIso) return 'Offline';
+            const lastSeen = new Date(lastSeenIso);
+            const diffMs = Date.now() - lastSeen.getTime();
+            const diffMin = Math.max(0, Math.floor(diffMs / 60000));
+            if (diffMin < 1) return 'Last seen just now';
+            if (diffMin === 1) return 'Last seen 1 minute ago';
+            if (diffMin < 60) return `Last seen ${diffMin} minutes ago`;
+            const diffHr = Math.floor(diffMin / 60);
+            if (diffHr === 1) return 'Last seen 1 hour ago';
+            if (diffHr < 24) return `Last seen ${diffHr} hours ago`;
+            const diffDays = Math.floor(diffHr / 24);
+            return `Last seen ${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+        }
+
+        function formatLastSeenLabel(lastSeenIso) {
+            if (!lastSeenIso) return 'Last seen: unknown';
+            const lastSeen = new Date(lastSeenIso);
+            const diffMs = Date.now() - lastSeen.getTime();
+            const diffMin = Math.max(0, Math.floor(diffMs / 60000));
+            if (diffMin < 1) return 'Last seen: just now';
+            if (diffMin === 1) return 'Last seen: 1 minute ago';
+            if (diffMin < 60) return `Last seen: ${diffMin} minutes ago`;
+            const diffHr = Math.floor(diffMin / 60);
+            if (diffHr === 1) return 'Last seen: 1 hour ago';
+            if (diffHr < 24) return `Last seen: ${diffHr} hours ago`;
+            const diffDays = Math.floor(diffHr / 24);
+            return `Last seen: ${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
         }
 
         function autoSelectChat(friends) {
@@ -1275,4 +1273,5 @@
     </div>
 </body>
 
+</html>
 </html>

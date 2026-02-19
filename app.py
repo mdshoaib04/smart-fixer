@@ -1,7 +1,10 @@
 from flask import Flask, render_template, redirect, url_for, request, jsonify, session, send_from_directory
+import time as _time
 from database import db
 from flask_login import LoginManager, current_user, login_user, logout_user
 from flask_socketio import SocketIO
+from flask_migrate import Migrate
+
 import os
 from dotenv import load_dotenv
 import re
@@ -48,6 +51,7 @@ db.init_app(app)
 
 # Initialize SocketIO with proper configuration
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+migrate = Migrate(app, db)
 
 # Import and initialize OAuth
 import oauth_auth
@@ -170,6 +174,9 @@ def api_login():
     
     if user and user.check_password(password):
         login_user(user, remember=True)
+        # Record session start for the timer
+        session['session_start'] = _time.time()
+        session['session_user_id'] = user.id
         return jsonify({'success': True, 'message': 'Login successful'})
     else:
         return jsonify({'success': False, 'message': 'Invalid credentials'})
@@ -232,8 +239,25 @@ def api_signup():
 
 @app.route('/logout')
 def logout():
+    # Clear session timer on logout
+    session.pop('session_start', None)
+    session.pop('session_user_id', None)
     logout_user()
     return redirect(url_for('index'))
+
+@app.route('/api/session-info')
+def api_session_info():
+    """Return elapsed session seconds so the JS timer can sync on page load."""
+    if not current_user.is_authenticated:
+        return jsonify({'logged_in': False, 'elapsed_seconds': 0})
+    start = session.get('session_start')
+    if start:
+        elapsed = int(_time.time() - start)
+    else:
+        # User was already logged in (remembered session), start counting from now
+        session['session_start'] = _time.time()
+        elapsed = 0
+    return jsonify({'logged_in': True, 'elapsed_seconds': elapsed})
 
 @app.route('/static/uploads/profiles/<filename>')
 def uploaded_file(filename):
@@ -283,5 +307,5 @@ if __name__ == '__main__':
     print("Press Ctrl+C to stop the server")
     print("="*60 + "\n")
     
-    # Use socketio.run instead of app.run for WebSocket support
-    socketio.run(app, debug=True, host='0.0.0.0', port=port, allow_unsafe_werkzeug=True)
+    # Final fix for SocketIO run configuration
+    socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True)

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,18 +8,19 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/posts.css') }}">
 </head>
+
 <body>
     <div class="nav-bar">
         <div class="nav-left">
             <button class="back-btn" onclick="goBack()" title="Back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5"/>
-                    <path d="M12 19l-7-7 7-7"/>
+                    <path d="M19 12H5" />
+                    <path d="M12 19l-7-7 7-7" />
                 </svg>
             </button>
             <div class="brand-logo">Notifications</div>
         </div>
-        
+
         <div class="nav-right">
             <a href="/notifications" class="notification-icon" title="Notifications">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -27,21 +29,22 @@
                 </svg>
                 <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
             </a>
-            
+
             <div class="theme-toggle" onclick="toggleTheme()" title="Theme">
                 <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
-                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                    <circle cx="12" cy="12" r="5"/>
-                    <line x1="12" y1="1" x2="12" y2="3"/>
-                    <line x1="12" y1="21" x2="12" y2="23"/>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                    <line x1="1" y1="12" x2="3" y2="12"/>
-                    <line x1="21" y1="12" x2="23" y2="12"/>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" style="display: none;">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
             </div>
         </div>
@@ -52,7 +55,7 @@
             <h2>Notifications</h2>
             <button class="mark-all-read" onclick="markAllRead()">Mark all as read</button>
         </div>
-        
+
         <div class="notifications-list" id="notificationsList">
             <!-- Real notifications will be loaded here -->
         </div>
@@ -62,33 +65,33 @@
     <script>
         // Navigation history management
         let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
-        
+
         // Initialize SocketIO
         const socket = io();
-        
+
         // Join user's personal room
-        socket.emit('join', {room: `user_{{ user.id }}`});
-        
+        socket.emit('join', { room: `user_{{ user.id }}` });
+
         // Listen for new notifications
-        socket.on('new_notification', function(data) {
+        socket.on('new_notification', function (data) {
             if (data.user_id === '{{ user.id }}') {
                 // Add notification to the list
                 const notificationsList = document.getElementById('notificationsList');
                 const item = createNotificationItem(data);
-                
+
                 // Add to the top of the list
                 if (notificationsList.firstChild) {
                     notificationsList.insertBefore(item, notificationsList.firstChild);
                 } else {
                     notificationsList.appendChild(item);
                 }
-                
+
                 // Update notification badge
                 updateNotificationBadge();
-                
+
                 // Show notification alert
                 showNotification('You have a new notification!', 'info');
-                
+
                 // Also show a more prominent alert
                 const alertDiv = document.createElement('div');
                 alertDiv.className = 'notification-alert';
@@ -99,7 +102,7 @@
                     </div>
                 `;
                 document.body.appendChild(alertDiv);
-                
+
                 // Auto-remove after 5 seconds
                 setTimeout(() => {
                     if (alertDiv.parentElement) {
@@ -108,7 +111,7 @@
                 }, 5000);
             }
         });
-        
+
         function updateNavigationHistory() {
             const currentPath = window.location.pathname;
             if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
@@ -119,19 +122,19 @@
                 sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
             }
         }
-        
+
         function goBack() {
             // Go back to the editor page
             window.location.href = '/editor';
         }
-        
+
         function toggleTheme() {
             const currentTheme = document.body.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
+
             document.body.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            
+
             if (newTheme === 'dark') {
                 document.querySelector('.moon').style.display = 'none';
                 document.querySelector('.sun').style.display = 'block';
@@ -145,40 +148,40 @@
             try {
                 const response = await fetch('/api/notifications');
                 const result = await response.json();
-                
+
                 // Check if the response was successful
                 if (!result.success) {
                     throw new Error(result.error || 'Failed to fetch notifications');
                 }
-                
+
                 const notifications = result.notifications || [];
                 const notificationsList = document.getElementById('notificationsList');
                 notificationsList.innerHTML = '';
-                
+
                 if (notifications.length === 0) {
                     notificationsList.innerHTML = '<p class="no-notifications">No notifications yet.</p>';
                     return;
                 }
-                
+
                 // Mark all notifications as read when viewing the notifications page (silently)
                 await markAllReadSilently();
-                
+
                 // Group notifications by date
                 const groupedNotifications = groupNotificationsByDate(notifications);
-                
+
                 for (const [date, notifs] of Object.entries(groupedNotifications)) {
                     const section = document.createElement('div');
                     section.className = 'notification-section';
-                    
+
                     const header = document.createElement('h3');
                     header.textContent = date;
                     section.appendChild(header);
-                    
+
                     notifs.forEach(notif => {
                         const item = createNotificationItem(notif);
                         section.appendChild(item);
                     });
-                    
+
                     notificationsList.appendChild(section);
                 }
             } catch (error) {
@@ -192,11 +195,11 @@
             const today = new Date();
             const yesterday = new Date(today);
             yesterday.setDate(yesterday.getDate() - 1);
-            
+
             notifications.forEach(notif => {
                 const notifDate = new Date(notif.created_at);
                 let groupKey;
-                
+
                 if (isSameDay(notifDate, today)) {
                     groupKey = 'Today';
                 } else if (isSameDay(notifDate, yesterday)) {
@@ -206,20 +209,20 @@
                 } else {
                     groupKey = formatDate(notifDate);
                 }
-                
+
                 if (!groups[groupKey]) {
                     groups[groupKey] = [];
                 }
                 groups[groupKey].push(notif);
             });
-            
+
             return groups;
         }
 
         function isSameDay(date1, date2) {
             return date1.getDate() === date2.getDate() &&
-                   date1.getMonth() === date2.getMonth() &&
-                   date1.getFullYear() === date2.getFullYear();
+                date1.getMonth() === date2.getMonth() &&
+                date1.getFullYear() === date2.getFullYear();
         }
 
         function isThisWeek(date) {
@@ -230,10 +233,10 @@
         }
 
         function formatDate(date) {
-            return date.toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
             });
         }
 
@@ -241,19 +244,19 @@
             const item = document.createElement('div');
             item.className = `notification-item ${notif.read_status ? '' : 'unread'}`;
             item.dataset.notificationId = notif.id;
-            
+
             // Store notification data for later use
             item.dataset.notificationData = JSON.stringify(notif);
-            
+
             // Store post ID if available
             if (notif.post_id) {
                 item.dataset.postId = notif.post_id;
             }
-            
+
             // Profile image and name on the left
             const leftContent = document.createElement('div');
             leftContent.className = 'notification-left';
-            
+
             if (notif.from_user && notif.from_user.profile_image_url) {
                 const avatar = document.createElement('img');
                 avatar.src = notif.from_user.profile_image_url;
@@ -261,13 +264,13 @@
                 avatar.className = 'notification-avatar';
                 leftContent.appendChild(avatar);
             }
-            
+
             const contentDiv = document.createElement('div');
             contentDiv.className = 'notification-content';
-            
+
             const textDiv = document.createElement('div');
             textDiv.className = 'notification-text';
-            
+
             // Make the user name in the notification content clickable
             if (notif.from_user) {
                 // Create a link for the user name
@@ -277,7 +280,7 @@
                 userLink.style.color = 'var(--primary-color)';
                 userLink.style.textDecoration = 'none';
                 userLink.style.fontWeight = 'bold';
-                
+
                 // Replace the user name in the content with the link
                 const contentText = notif.message;
                 const userName = `${notif.from_user.first_name} ${notif.from_user.last_name}`;
@@ -285,7 +288,7 @@
                 if (userNameIndex !== -1) {
                     const beforeUserName = contentText.substring(0, userNameIndex);
                     const afterUserName = contentText.substring(userNameIndex + userName.length);
-                    
+
                     textDiv.appendChild(document.createTextNode(beforeUserName));
                     textDiv.appendChild(userLink);
                     textDiv.appendChild(document.createTextNode(afterUserName));
@@ -296,20 +299,20 @@
             } else {
                 textDiv.textContent = notif.message;
             }
-            
+
             contentDiv.appendChild(textDiv);
-            
+
             const timeDiv = document.createElement('div');
             timeDiv.className = 'notification-time';
             timeDiv.textContent = formatTimeAgo(notif.created_at);
             contentDiv.appendChild(timeDiv);
-            
+
             leftContent.appendChild(contentDiv);
-            
+
             // Actions on the right
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'notification-actions';
-            
+
             // Handle different notification types
             if (notif.type === 'follow_request') {
                 // Check if this is a follow back request by looking at the content
@@ -333,7 +336,7 @@
                     confirmBtn.textContent = 'Confirm';
                     confirmBtn.onclick = () => respondToNotification(notif.id, 'accept');
                     actionsDiv.appendChild(confirmBtn);
-                    
+
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'delete-btn';
                     deleteBtn.textContent = 'Delete';
@@ -353,7 +356,7 @@
                     confirmBtn.textContent = 'Confirm';
                     confirmBtn.onclick = () => respondToNotification(notif.id, 'accept');
                     actionsDiv.appendChild(confirmBtn);
-                    
+
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'delete-btn';
                     deleteBtn.textContent = 'Delete';
@@ -371,7 +374,7 @@
                     }
                 };
                 actionsDiv.appendChild(viewBtn);
-            } else if (notif.type === 'like') {
+            } else if (notif.type === 'like' || notif.type === 'post') {
                 // For likes, show a view button that opens the post
                 const viewBtn = document.createElement('button');
                 viewBtn.className = 'view-btn';
@@ -404,10 +407,10 @@
                     actionsDiv.appendChild(profileBtn);
                 }
             }
-            
+
             item.appendChild(leftContent);
             item.appendChild(actionsDiv);
-            
+
             return item;
         }
 
@@ -415,7 +418,7 @@
             const date = new Date(dateString);
             const now = new Date();
             const diffInSeconds = Math.floor((now - date) / 1000);
-            
+
             if (diffInSeconds < 60) {
                 return `${diffInSeconds}s`;
             } else if (diffInSeconds < 3600) {
@@ -433,34 +436,34 @@
                 await fetch('/api/notifications/read-all', {
                     method: 'POST'
                 });
-                
+
                 // Update UI
                 document.querySelectorAll('.notification-item.unread').forEach(item => {
                     item.classList.remove('unread');
                 });
-                
+
                 // Update notification badge
                 await updateNotificationBadge();
-                
+
                 alert('All notifications marked as read!');
             } catch (error) {
                 console.error('Error marking notifications as read:', error);
                 alert('Failed to mark notifications as read');
             }
         }
-        
+
         async function markAllReadSilently() {
             try {
                 // Call API to mark all notifications as read
                 await fetch('/api/notifications/read-all', {
                     method: 'POST'
                 });
-                
+
                 // Update UI
                 document.querySelectorAll('.notification-item.unread').forEach(item => {
                     item.classList.remove('unread');
                 });
-                
+
                 // Update notification badge
                 await updateNotificationBadge();
             } catch (error) {
@@ -476,9 +479,9 @@
                     showNotification('Notification not found', 'error');
                     return;
                 }
-                
+
                 const notifData = JSON.parse(item.dataset.notificationData || '{}');
-                
+
                 let response;
                 if (action === 'accept') {
                     // For follow requests, call the accept follow endpoint
@@ -486,8 +489,8 @@
                     const requestId = notifData.follow_request_id || notifId;
                     response = await fetch('/api/follow/accept', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({request_id: requestId})
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ request_id: requestId })
                     });
                 } else if (action === 'deny') {
                     // For follow requests, call the reject follow endpoint
@@ -495,16 +498,16 @@
                     const requestId = notifData.follow_request_id || notifId;
                     response = await fetch('/api/follow/reject', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({request_id: requestId})
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ request_id: requestId })
                     });
                 } else {
                     showNotification('Invalid action', 'error');
                     return;
                 }
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     // Update the notification item in the list based on action
                     if (item) {
@@ -512,7 +515,7 @@
                             // Change buttons to "View"
                             const actionsDiv = item.querySelector('.notification-actions');
                             actionsDiv.innerHTML = '';
-                            
+
                             const viewBtn = document.createElement('button');
                             viewBtn.className = 'view-btn';
                             viewBtn.textContent = 'View';
@@ -523,7 +526,7 @@
                                 }
                             };
                             actionsDiv.appendChild(viewBtn);
-                            
+
                             // Update notification text
                             const textDiv = item.querySelector('.notification-text');
                             // Find the user link and get the user name
@@ -535,7 +538,7 @@
                                 textDiv.appendChild(userLinkClone);
                                 textDiv.appendChild(document.createTextNode(' started following you'));
                             }
-                            
+
                             showNotification('Friend request accepted!', 'success');
                         } else if (action === 'deny') {
                             // Remove the notification item from the list
@@ -544,7 +547,7 @@
                             showNotification('Friend request deleted.', 'info');
                         }
                     }
-                    
+
                     // Update notification badge
                     await updateNotificationBadge();
                 } else {
@@ -562,12 +565,12 @@
             if (item) {
                 item.classList.remove('unread');
             }
-            
+
             // Update notification badge
             await updateNotificationBadge();
-            
+
             // Navigate based on notification type
-            if (notif.type === 'like') {
+            if (notif.type === 'like' || notif.type === 'post') {
                 // For likes, navigate to the post
                 if (notif.post_id) {
                     window.location.href = `/post/${notif.post_id}`;
@@ -611,7 +614,7 @@
             const notification = document.createElement('div');
             notification.className = `notification notification-${type}`;
             notification.textContent = message;
-            
+
             notification.style.cssText = `
                 position: fixed;
                 top: 20px;
@@ -624,8 +627,8 @@
                 transform: translateX(100%);
                 transition: transform 0.3s ease;
             `;
-            
-            switch(type) {
+
+            switch (type) {
                 case 'success':
                     notification.style.background = 'linear-gradient(135deg, #4caf50, #45a049)';
                     break;
@@ -638,14 +641,14 @@
                 default:
                     notification.style.background = 'linear-gradient(135deg, #607d8b, #455a64)';
             }
-            
+
             document.body.appendChild(notification);
-            
+
             // Animate in
             setTimeout(() => {
                 notification.style.transform = 'translateX(0)';
             }, 100);
-            
+
             // Auto remove after 3 seconds
             setTimeout(() => {
                 notification.style.transform = 'translateX(100%)';
@@ -660,7 +663,7 @@
         }
 
         // Load theme and notifications on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const theme = localStorage.getItem('theme') || 'light';
             if (theme === 'dark') {
                 document.body.setAttribute('data-theme', 'dark');
@@ -671,7 +674,7 @@
             loadNotifications();
         });
     </script>
-    
+
     <style>
         .notification-alert {
             position: fixed;
@@ -681,19 +684,19 @@
             color: white;
             padding: 15px 20px;
             border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             z-index: 10000;
             max-width: 300px;
             animation: slideIn 0.3s ease;
         }
-        
+
         .notification-alert-content {
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 10px;
         }
-        
+
         .notification-alert button {
             background: none;
             border: none;
@@ -708,18 +711,19 @@
             align-items: center;
             justify-content: center;
         }
-        
+
         @keyframes slideIn {
             from {
                 transform: translateX(100%);
                 opacity: 0;
             }
+
             to {
                 transform: translateX(0);
                 opacity: 1;
             }
         }
-        
+
         .no-notifications {
             text-align: center;
             padding: 40px;
@@ -727,4 +731,5 @@
         }
     </style>
 </body>
+
 </html>

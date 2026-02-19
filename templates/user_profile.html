@@ -57,27 +57,26 @@
                     <h1>{{ target_user.first_name }} {{ target_user.last_name }}</h1>
                     {% if not is_current_user %}
                         {% if is_following %}
-                            {% if is_following_me %}
-                                <button class="follow-btn following" id="followBtn" disabled>
-                                    Both Follow Each Other
-                                </button>
-                            {% else %}
-                                <button class="follow-btn following" id="followBtn" onclick="toggleFollow()">
-                                    Following
-                                </button>
-                            {% endif %}
+                            <button class="follow-btn following" id="followBtn" disabled>
+                                Following
+                            </button>
+                        {% elif has_pending_request %}
+                            <button class="follow-btn requested" id="followBtn" disabled>
+                                Requested
+                            </button>
+                        {% elif is_following_me %}
+                            <button class="follow-btn" id="followBtn" onclick="toggleFollow()">
+                                Follow Back
+                            </button>
                         {% else %}
-                            {% if is_following_me %}
-                                <button class="follow-btn" id="followBtn" onclick="followBack()">
-                                    Follow Back
-                                </button>
-                            {% else %}
-                                <button class="follow-btn" id="followBtn" onclick="toggleFollow()">
-                                    Follow
-                                </button>
-                            {% endif %}
+                            <button class="follow-btn" id="followBtn" onclick="toggleFollow()">
+                                Follow
+                            </button>
                         {% endif %}
                     {% endif %}
+                    <div class="profile-username">
+                        @{{ target_user.username }}
+                    </div>
                     <div class="profile-stats">
                         <div class="stat" onclick="showProfileTab('posts')">
                             <span class="stat-number" id="postCount">{{ post_count }}</span>
@@ -319,6 +318,9 @@
             }
         }
         
+        const targetUserId = "{{ target_user.id }}";
+        const isCurrentUser = "{{ 'true' if is_current_user else 'false' }}";
+
         function updateNavigationHistory() {
             const currentPath = window.location.pathname;
             let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
@@ -387,8 +389,8 @@
         }
 
         async function toggleFollow() {
-            if (isCurrentUser) return;
-            
+            if (isCurrentUser === "true") return;
+
             try {
                 const response = await fetch(`/api/follow/request`, {
                     method: 'POST',
@@ -403,50 +405,18 @@
                     const followBtn = document.getElementById('followBtn');
                     
                     if (data.success) {
-                        // Update button to show "Following" instead of "Requested"
-                        followBtn.textContent = 'Following';
-                        followBtn.classList.add('following');
-                        followBtn.classList.remove('requested');
+                        // Follow request (pending) – show "Requested"
+                        followBtn.textContent = 'Requested';
+                        followBtn.classList.add('requested');
+                        followBtn.disabled = true;
                         showNotification(data.message, 'success');
                     } else {
                         showNotification(data.error, 'error');
                     }
                 }
             } catch (error) {
-                console.error('Error following user:', error);
-                showNotification('Error following user', 'error');
-            }
-        }
-        
-        async function followBack() {
-            if (isCurrentUser) return;
-            
-            try {
-                const response = await fetch(`/api/follow/request`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ to_user_id: targetUserId })
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    const followBtn = document.getElementById('followBtn');
-                    
-                    if (data.success) {
-                        // Update button to show "Following" instead of "Requested"
-                        followBtn.textContent = 'Following';
-                        followBtn.classList.add('following');
-                        followBtn.classList.remove('requested');
-                        showNotification(data.message, 'success');
-                    } else {
-                        showNotification(data.error, 'error');
-                    }
-                }
-            } catch (error) {
-                console.error('Error following user back:', error);
-                showNotification('Error following user back', 'error');
+                console.error('Error sending follow request:', error);
+                showNotification('Error sending follow request', 'error');
             }
         }
 

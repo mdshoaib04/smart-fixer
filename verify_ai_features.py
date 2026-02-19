@@ -40,7 +40,7 @@ def test_dictionary():
     data = {"prompt": "sum of two numbers", "language": "python"}
     resp = SESSION.post(f"{BASE_URL}/api/dictionary", json=data)
     if resp.status_code == 200 and resp.json().get("success"):
-        print(f"[OK] Dictionary Success: {resp.json().get('code')[:50]}...")
+        print(f"[OK] Dictionary Success: {resp.json().get('result')[:50]}...")
     else:
         print(f"[FAIL] Dictionary Failed: {resp.text}")
 
@@ -50,7 +50,7 @@ def test_translate():
     data = {"code": code, "target_lang": "java", "source_lang": "python"}
     resp = SESSION.post(f"{BASE_URL}/api/translate", json=data)
     if resp.status_code == 200 and resp.json().get("success"):
-        print(f"[OK] Translation Success: {resp.json().get('code')[:50]}...")
+        print(f"[OK] Translation Success: {resp.json().get('result')[:50]}...")
     else:
         print(f"[FAIL] Translation Failed: {resp.text}")
 
@@ -60,7 +60,7 @@ def test_review():
     data = {"code": code, "language": "python"}
     resp = SESSION.post(f"{BASE_URL}/api/review", json=data)
     if resp.status_code == 200 and resp.json().get("success"):
-        print(f"[OK] Review Success: {resp.json().get('review')[:50]}...")
+        print(f"[OK] Review Success: {resp.json().get('result')[:50]}...")
     else:
         print(f"[FAIL] Review Failed: {resp.text}")
 
@@ -70,7 +70,7 @@ def test_explain():
     data = {"code": code, "language": "python", "role": "student"}
     resp = SESSION.post(f"{BASE_URL}/api/explain", json=data)
     if resp.status_code == 200 and resp.json().get("success"):
-        print(f"[OK] Explanation Success: {resp.json().get('explanation')[:50]}...")
+        print(f"[OK] Explanation Success: {resp.json().get('result')[:50]}...")
     else:
         print(f"[FAIL] Explanation Failed: {resp.text}")
 
@@ -79,7 +79,7 @@ def test_question():
     data = {"question": "How do I print in Python?", "code": "", "language": "python"}
     resp = SESSION.post(f"{BASE_URL}/api/question", json=data)
     if resp.status_code == 200 and resp.json().get("success"):
-        print(f"[OK] Question Success: {resp.json().get('answer')[:50]}...")
+        print(f"[OK] Question Success: {resp.json().get('result')[:50]}...")
     else:
         print(f"[FAIL] Question Failed: {resp.text}")
 

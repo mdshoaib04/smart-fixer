@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,18 +8,19 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/explore.css') }}">
 </head>
+
 <body>
     <div class="nav-bar">
         <div class="nav-left">
             <button class="back-btn" onclick="goBack()" title="Back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5"/>
-                    <path d="M12 19l-7-7 7-7"/>
+                    <path d="M19 12H5" />
+                    <path d="M12 19l-7-7 7-7" />
                 </svg>
             </button>
             <div class="brand-logo">Explore</div>
         </div>
-        
+
         <div class="nav-right">
             <a href="/notifications" class="notification-icon" title="Notifications">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -27,21 +29,22 @@
                 </svg>
                 <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
             </a>
-            
+
             <div class="theme-toggle" onclick="toggleTheme()" title="Theme">
                 <svg class="theme-icon moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
-                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                    <circle cx="12" cy="12" r="5"/>
-                    <line x1="12" y1="1" x2="12" y2="3"/>
-                    <line x1="12" y1="21" x2="12" y2="23"/>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                    <line x1="1" y1="12" x2="3" y2="12"/>
-                    <line x1="21" y1="12" x2="23" y2="12"/>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                <svg class="theme-icon sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" style="display: none;">
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
             </div>
         </div>
@@ -54,19 +57,19 @@
                 <input type="text" id="userSearch" placeholder="Search users..." class="search-input">
                 <button class="search-button" onclick="searchUsers()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"/>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
                 </button>
             </div>
             <div class="search-results" id="searchResults" style="display: none;"></div>
         </div>
-        
+
         <div class="explore-header">
             <h2>Explore Posts</h2>
             <p>Discover amazing code from the community</p>
         </div>
-        
+
         <div class="feed" id="exploreFeed">
             <!-- Posts will be loaded here -->
             <div class="loading">Loading posts...</div>
@@ -76,7 +79,7 @@
     <script>
         // Navigation history management
         let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
-        
+
         function updateNavigationHistory() {
             const currentPath = window.location.pathname;
             if (navigationHistory.length === 0 || navigationHistory[navigationHistory.length - 1] !== currentPath) {
@@ -87,19 +90,19 @@
                 sessionStorage.setItem('navigationHistory', JSON.stringify(navigationHistory));
             }
         }
-        
+
         function goBack() {
             // Go back to the editor page
             window.location.href = '/editor';
         }
-        
+
         function toggleTheme() {
             const currentTheme = document.body.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
+
             document.body.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
-            
+
             if (newTheme === 'dark') {
                 document.querySelector('.moon').style.display = 'none';
                 document.querySelector('.sun').style.display = 'block';
@@ -112,11 +115,24 @@
         async function loadExplorePosts() {
             try {
                 const response = await fetch('/api/explore-posts');
-                const posts = await response.json();
-                
+                const data = await response.json();
+
                 const feed = document.getElementById('exploreFeed');
-                
-                if (posts.length === 0) {
+
+                let followingPosts = [];
+                let suggestedPosts = [];
+
+                if (Array.isArray(data)) {
+                    // Backwards compatibility if API ever returned flat list
+                    followingPosts = data;
+                } else {
+                    followingPosts = data.following_posts || [];
+                    suggestedPosts = data.suggested_posts || [];
+                }
+
+                const allPosts = [...followingPosts, ...suggestedPosts];
+
+                if (allPosts.length === 0) {
                     feed.innerHTML = `
                         <div class="empty-state">
                             <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
@@ -128,7 +144,38 @@
                         </div>
                     `;
                 } else {
-                    feed.innerHTML = posts.map(post => `
+                    let html = '';
+
+                    if (followingPosts.length > 0) {
+                        html += `
+                            <div class="section-header">
+                                <h3>Following</h3>
+                                <p>Posts from people you follow</p>
+                            </div>
+                        `;
+                        html += followingPosts.map(post => renderExplorePostCard(post)).join('');
+                    }
+
+                    if (suggestedPosts.length > 0) {
+                        html += `
+                            <div class="section-header">
+                                <h3>Suggested Posts</h3>
+                                <p>Discover more from the community</p>
+                            </div>
+                        `;
+                        html += suggestedPosts.map(post => renderExplorePostCard(post)).join('');
+                    }
+
+                    feed.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Error loading explore posts:', error);
+                document.getElementById('exploreFeed').innerHTML = '<div class="error">Error loading posts. Please try again.</div>';
+            }
+        }
+
+        function renderExplorePostCard(post) {
+            return `
                         <div class="post-card">
                             <div class="post-header">
                                 <img src="${post.author_image || 'https://via.placeholder.com/40'}" alt="${post.author_name}" class="post-avatar">
@@ -191,12 +238,7 @@
                                 </div>
                             </div>
                         </div>
-                    `).join('');
-                }
-            } catch (error) {
-                console.error('Error loading explore posts:', error);
-                document.getElementById('exploreFeed').innerHTML = '<div class="error">Error loading posts. Please try again.</div>';
-            }
+                    `;
         }
 
         async function likePost(postId, button) {
@@ -207,13 +249,13 @@
                         'Content-Type': 'application/json'
                     }
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     const span = button.querySelector('span');
                     span.textContent = data.likes;
-                    
-                    if (data.likes > parseInt(span.textContent)) {
+
+                    if (data.liked) {
                         button.classList.add('liked');
                     } else {
                         button.classList.remove('liked');
@@ -232,7 +274,7 @@
                         'Content-Type': 'application/json'
                     }
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     if (data.saved) {
@@ -249,7 +291,7 @@
         async function toggleComments(postId) {
             const commentsSection = document.getElementById(`comments-${postId}`);
             const commentsList = document.getElementById(`comments-list-${postId}`);
-            
+
             if (commentsSection.style.display === 'none') {
                 // Load comments
                 await loadComments(postId);
@@ -263,7 +305,7 @@
             try {
                 const response = await fetch(`/api/posts/${postId}/comments`);
                 const comments = await response.json();
-                
+
                 const commentsList = document.getElementById(`comments-list-${postId}`);
                 commentsList.innerHTML = comments.map(comment => `
                     <div class="comment">
@@ -284,9 +326,9 @@
         async function addComment(postId) {
             const input = document.querySelector(`.comment-input[data-post-id="${postId}"]`);
             const content = input.value.trim();
-            
+
             if (!content) return;
-            
+
             try {
                 const response = await fetch(`/api/posts/${postId}/comment`, {
                     method: 'POST',
@@ -295,7 +337,7 @@
                     },
                     body: JSON.stringify({ content: content })
                 });
-                
+
                 if (response.ok) {
                     input.value = '';
                     await loadComments(postId);
@@ -329,9 +371,9 @@
                     },
                     body: JSON.stringify({ user_id: userId })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     if (data.action === 'requested' || data.action === 'accepted') {
                         button.textContent = 'Following';
@@ -348,32 +390,32 @@
 
         function timeAgo(date) {
             const seconds = Math.floor((new Date() - date) / 1000);
-            
+
             let interval = seconds / 31536000;
             if (interval > 1) {
                 return Math.floor(interval) + " years ago";
             }
-            
+
             interval = seconds / 2592000;
             if (interval > 1) {
                 return Math.floor(interval) + " months ago";
             }
-            
+
             interval = seconds / 86400;
             if (interval > 1) {
                 return Math.floor(interval) + " days ago";
             }
-            
+
             interval = seconds / 3600;
             if (interval > 1) {
                 return Math.floor(interval) + " hours ago";
             }
-            
+
             interval = seconds / 60;
             if (interval > 1) {
                 return Math.floor(interval) + " minutes ago";
             }
-            
+
             return Math.floor(seconds) + " seconds ago";
         }
 
@@ -387,7 +429,7 @@
             const notification = document.createElement('div');
             notification.className = `notification notification-${type}`;
             notification.textContent = message;
-            
+
             notification.style.cssText = `
                 position: fixed;
                 top: 20px;
@@ -400,8 +442,8 @@
                 transform: translateX(100%);
                 transition: transform 0.3s ease;
             `;
-            
-            switch(type) {
+
+            switch (type) {
                 case 'success':
                     notification.style.background = 'linear-gradient(135deg, #4caf50, #45a049)';
                     break;
@@ -411,13 +453,13 @@
                 default:
                     notification.style.background = 'linear-gradient(135deg, #2196f3, #1976d2)';
             }
-            
+
             document.body.appendChild(notification);
-            
+
             setTimeout(() => {
                 notification.style.transform = 'translateX(0)';
             }, 100);
-            
+
             setTimeout(() => {
                 notification.style.transform = 'translateX(100%)';
                 setTimeout(() => {
@@ -431,16 +473,16 @@
             const searchInput = document.getElementById('userSearch');
             const query = searchInput.value.trim();
             const searchResults = document.getElementById('searchResults');
-            
+
             if (!query) {
                 searchResults.style.display = 'none';
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/api/search-users?q=${encodeURIComponent(query)}`);
                 const data = await response.json();
-                
+
                 if (data.users && data.users.length > 0) {
                     displaySearchResults(data.users);
                 } else {
@@ -453,12 +495,27 @@
                 searchResults.style.display = 'block';
             }
         }
-    
+
         function displaySearchResults(users) {
             const searchResults = document.getElementById('searchResults');
             searchResults.innerHTML = '';
-            
+
             users.forEach(user => {
+                const followStatus = user.follow_status || (user.is_following ? 'following' : 'none');
+
+                let followText = 'Follow';
+                let followExtraClass = '';
+                let followDisabled = '';
+                if (followStatus === 'following') {
+                    followText = 'Following';
+                    followExtraClass = ' following';
+                    followDisabled = 'disabled';
+                } else if (followStatus === 'pending') {
+                    followText = 'Requested';
+                    followExtraClass = ' requested';
+                    followDisabled = 'disabled';
+                }
+
                 const userElement = document.createElement('div');
                 userElement.className = 'search-result-item';
                 userElement.innerHTML = `
@@ -468,50 +525,49 @@
                         <div class="result-username">@${user.username}</div>
                     </div>
                     <div class="result-actions">
-                        <button class="follow-btn ${user.is_following ? 'following' : ''}" data-user-id="${user.id}">
-                            ${user.is_following ? 'Following' : 'Follow'}
+                        <button class="view-profile-btn" data-user-id="${user.id}">
+                            View Profile
                         </button>
-                        <button class="chat-btn" title="Chat with ${user.first_name}">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                            </svg>
+                        <button class="follow-btn${followExtraClass}" data-user-id="${user.id}" ${followDisabled}>
+                            ${followText}
                         </button>
                     </div>
                 `;
                 searchResults.appendChild(userElement);
-                
+
                 // Add event listeners after the element is added to the DOM
                 const followBtn = userElement.querySelector('.follow-btn');
-                const chatBtn = userElement.querySelector('.chat-btn');
+                const viewBtn = userElement.querySelector('.view-profile-btn');
                 const userInfo = userElement.querySelector('.result-info');
-                
+
                 // Make the user info clickable to go to the profile
                 userInfo.style.cursor = 'pointer';
-                userInfo.addEventListener('click', function() {
+                userInfo.addEventListener('click', function () {
                     window.location.href = `/user/${user.id}`;
                 });
-                
-                followBtn.addEventListener('click', function(event) {
+
+                // Explicit "View Profile" button
+                viewBtn.addEventListener('click', function (event) {
+                    event.stopPropagation();
+                    window.location.href = `/user/${user.id}`;
+                });
+
+                followBtn.addEventListener('click', function (event) {
                     event.stopPropagation(); // Prevent the click from bubbling to the user info
                     toggleFollow(user.id, this);
                 });
-                
-                chatBtn.addEventListener('click', function(event) {
-                    event.stopPropagation(); // Prevent the click from bubbling to the user info
-                    startChat(user.id);
-                });
             });
-            
+
             searchResults.style.display = 'block';
         }
-    
+
         async function toggleFollow(userId, button) {
             try {
                 // Show loading state
                 const originalText = button.textContent;
                 button.textContent = '...';
                 button.disabled = true;
-                
+
                 // Use the correct API endpoint for follow requests
                 const response = await fetch('/api/follow/request', {
                     method: 'POST',
@@ -522,9 +578,9 @@
                         to_user_id: userId
                     })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     // Update button to show "Requested" since we're using the new follow system
                     button.classList.add('following');
@@ -542,32 +598,32 @@
                 button.disabled = false;
             }
         }
-    
+
         function startChat(userId) {
             // Redirect to chat page with the selected user
             window.location.href = `/chat?user=${userId}`;
         }
-    
+
         // Add event listener for search input
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const searchInput = document.getElementById('userSearch');
-            
-            searchInput.addEventListener('input', function() {
+
+            searchInput.addEventListener('input', function () {
                 // Debounce the search to avoid too many requests
                 clearTimeout(this.searchTimeout);
                 this.searchTimeout = setTimeout(searchUsers, 300);
             });
-            
+
             // Close search results when clicking outside
-            document.addEventListener('click', function(event) {
+            document.addEventListener('click', function (event) {
                 const searchContainer = document.querySelector('.search-container');
                 if (!searchContainer.contains(event.target)) {
                     document.getElementById('searchResults').style.display = 'none';
                 }
             });
-            
+
             // Load theme and notifications on page load
-            document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('DOMContentLoaded', function () {
                 const theme = localStorage.getItem('theme') || 'light';
                 if (theme === 'dark') {
                     document.body.setAttribute('data-theme', 'dark');
@@ -578,7 +634,7 @@
                 loadExplorePosts();
                 updateNotificationBadge(); // Update notification badge
             });
-            
+
             // Update notification badge
             async function updateNotificationBadge() {
                 try {
@@ -596,4 +652,5 @@
         });
     </script>
 </body>
+
 </html>
