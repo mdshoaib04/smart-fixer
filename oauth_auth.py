@@ -29,10 +29,16 @@ def init_oauth(flask_app, database):
     db = database
     
     # Log OAuth configuration for debugging
-    google_client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID")
-    google_client_secret = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET")
-    github_client_id = os.environ.get("GITHUB_OAUTH_CLIENT_ID")
-    github_client_secret = os.environ.get("GITHUB_OAUTH_CLIENT_SECRET")
+    google_client_id = os.environ.get("GOOGLE_OAUTH_CLIENT_ID") or os.environ.get("GOOGLE_CLIENT_ID")
+    google_client_secret = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET")
+    github_client_id = os.environ.get("GITHUB_OAUTH_CLIENT_ID") or os.environ.get("GITHUB_CLIENT_ID")
+    github_client_secret = os.environ.get("GITHUB_OAUTH_CLIENT_SECRET") or os.environ.get("GITHUB_CLIENT_SECRET")
+    
+    # Print for debugging to help identify environment variable issues
+    print(f"GOOGLE_CLIENT_ID: {google_client_id is not None}")
+    print(f"GOOGLE_CLIENT_SECRET EXISTS: {google_client_secret is not None}")
+    print(f"GITHUB_CLIENT_ID: {github_client_id is not None}")
+    print(f"GITHUB_CLIENT_SECRET EXISTS: {github_client_secret is not None}")
     
     logger.debug(f"Google Client ID: {google_client_id}")
     logger.debug(f"Google Client Secret length: {len(google_client_secret) if google_client_secret else 0}")

@@ -2552,6 +2552,179 @@ def register_socketio_events():
             print(f"Error loading time-tracker contributions: {e}")
             return jsonify({'days': []}), 500
 
+    @app.route('/api/user/<user_id>/posts', methods=['GET'])
+    @require_login
+    def api_user_posts(user_id):
+        """Get posts by a specific user"""
+        try:
+            # Verify the user exists
+            target_user = User.query.get(user_id)
+            if not target_user:
+                return jsonify({'success': False, 'error': 'User not found'}), 404
+            
+            posts = Post.query.filter_by(user_id=user_id).order_by(Post.created_at.desc()).all()
+            
+            posts_data = []
+            for post in posts:
+                author = post.author
+                # Check if current user liked this post
+                liked = PostLike.query.filter_by(post_id=post.id, user_id=current_user.id).first() is not None
+                
+                posts_data.append({
+                    'id': post.id,
+                    'user_id': post.user_id,
+                    'author_name': author.full_name if author else 'Unknown',
+                    'author_image': author.profile_image_url if author else None,
+                    'code': post.code,
+                    'language': post.language,
+                    'description': post.description or '',
+                    'likes': post.likes or 0,
+                    'comments_count': len(post.comments or []),
+                    'created_at': post.created_at.isoformat(),
+                    'liked': liked
+                })
+            
+            return jsonify({'success': True, 'posts': posts_data})
+        except Exception as e:
+            print(f"Error getting user posts: {e}")
+            return jsonify({'success': False, 'error': 'Failed to get posts'}), 500
+
+    @app.route('/api/user/<user_id>/saved-posts', methods=['GET'])
+    @require_login
+    def api_user_saved_posts(user_id):
+        """Get saved posts by a specific user"""
+        try:
+            # Verify the user exists and it's the current user
+            if user_id != current_user.id:
+                return jsonify({'success': False, 'error': 'Access denied'}), 403
+            
+            saved_posts = PostSave.query.filter_by(user_id=user_id).all()
+            
+            posts_data = []
+            for saved in saved_posts:
+                post = saved.post
+                if post:
+                    author = post.author
+                    # Check if current user liked this post
+                    liked = PostLike.query.filter_by(post_id=post.id, user_id=current_user.id).first() is not None
+                    
+                    posts_data.append({
+                        'id': post.id,
+                        'user_id': post.user_id,
+                        'author_name': author.full_name if author else 'Unknown',
+                        'author_image': author.profile_image_url if author else None,
+                        'code': post.code,
+                        'language': post.language,
+                        'description': post.description or '',
+                        'likes': post.likes or 0,
+                        'comments_count': len(post.comments or []),
+                        'created_at': post.created_at.isoformat(),
+                        'liked': liked
+                    })
+            
+            return jsonify({'success': True, 'posts': posts_data})
+        except Exception as e:
+            print(f"Error getting saved posts: {e}")
+            return jsonify({'success': False, 'error': 'Failed to get saved posts'}), 500
+
+    @app.route('/api/user/<user_id>/liked-posts', methods=['GET'])
+    @require_login
+    def api_user_liked_posts(user_id):
+        """Get liked posts by a specific user"""
+        try:
+            # Verify the user exists and it's the current user
+            if user_id != current_user.id:
+                return jsonify({'success': False, 'error': 'Access denied'}), 403
+            
+            liked_posts = PostLike.query.filter_by(user_id=user_id).all()
+            
+            posts_data = []
+            for liked in liked_posts:
+                post = liked.post
+                if post:
+                    author = post.author
+                    # Check if current user liked this post (should be true, but just in case)
+                    liked_status = PostLike.query.filter_by(post_id=post.id, user_id=current_user.id).first() is not None
+                    
+                    posts_data.append({
+                        'id': post.id,
+                        'user_id': post.user_id,
+                        'author_name': author.full_name if author else 'Unknown',
+                        'author_image': author.profile_image_url if author else None,
+                        'code': post.code,
+                        'language': post.language,
+                        'description': post.description or '',
+                        'likes': post.likes or 0,
+                        'comments_count': len(post.comments or []),
+                        'created_at': post.created_at.isoformat(),
+                        'liked': liked_status
+                    })
+            
+            return jsonify({'success': True, 'posts': posts_data})
+        except Exception as e:
+            print(f"Error getting liked posts: {e}")
+            return jsonify({'success': False, 'error': 'Failed to get liked posts'}), 500
+
+    @app.route('/api/user/<user_id>/followers', methods=['GET'])
+    @require_login
+    def api_user_followers(user_id):
+        """Get followers for a specific user"""
+        try:
+            # Verify the user exists
+            target_user = User.query.get(user_id)
+            if not target_user:
+                return jsonify({'success': False, 'error': 'User not found'}), 404
+            
+            followers = Follower.query.filter_by(user_id=user_id).all()
+            
+            followers_data = []
+            for follower in followers:
+                user = follower.follower
+                if user:
+                    followers_data.append({
+                        'id': user.id,
+                        'username': user.username,
+                        'first_name': user.first_name,
+                        'last_name': user.last_name,
+                        'profile_image_url': user.profile_image_url,
+                        'followed_at': follower.created_at.isoformat() if follower.created_at else None
+                    })
+            
+            return jsonify({'success': True, 'followers': followers_data})
+        except Exception as e:
+            print(f"Error getting followers: {e}")
+            return jsonify({'success': False, 'error': 'Failed to get followers'}), 500
+
+    @app.route('/api/user/<user_id>/following', methods=['GET'])
+    @require_login
+    def api_user_following(user_id):
+        """Get users that a specific user is following"""
+        try:
+            # Verify the user exists
+            target_user = User.query.get(user_id)
+            if not target_user:
+                return jsonify({'success': False, 'error': 'User not found'}), 404
+            
+            following = Follower.query.filter_by(follower_id=user_id).all()
+            
+            following_data = []
+            for follow in following:
+                user = follow.user
+                if user:
+                    following_data.append({
+                        'id': user.id,
+                        'username': user.username,
+                        'first_name': user.first_name,
+                        'last_name': user.last_name,
+                        'profile_image_url': user.profile_image_url,
+                        'followed_at': follow.created_at.isoformat() if follow.created_at else None
+                    })
+            
+            return jsonify({'success': True, 'following': following_data})
+        except Exception as e:
+            print(f"Error getting following: {e}")
+            return jsonify({'success': False, 'error': 'Failed to get following'}), 500
+
     @app.route('/api/user-stats')
     @require_login
     def api_user_stats():

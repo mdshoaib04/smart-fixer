@@ -8,6 +8,449 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}?v=5">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/time_tracker.css') }}?v=5">
+    <style>
+        body {
+            overflow-x: hidden;
+        }
+        
+        .profile-page {
+            min-height: 100vh;
+            overflow-y: auto;
+            padding-top: 0;
+        }
+        
+        .profile-container {
+            max-width: 935px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .profile-header {
+            display: flex;
+            align-items: flex-start;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+        }
+        
+        .profile-avatar {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            overflow: hidden;
+            margin-right: 30px;
+            flex-shrink: 0;
+        }
+        
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .profile-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            text-align: center;
+            margin-top: 20px;
+            width: 100%;
+        }
+        
+        .stat {
+            cursor: pointer;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-color);
+        }
+        
+        .profile-info {
+            flex-grow: 1;
+            margin-top: 20px;
+        }
+        
+        .profile-username {
+            font-size: 28px;
+            font-weight: 300;
+            margin-bottom: 10px;
+        }
+        
+        .profile-bio {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        
+        .profile-location {
+            color: var(--text-color);
+            margin-bottom: 15px;
+        }
+        
+        .profile-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .edit-profile-btn, .share-profile-btn {
+            flex: 1;
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .profile-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 15px 0;
+            text-align: center;
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: var(--text-color);
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .tab-btn.active {
+            font-weight: 600;
+        }
+        
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary-color);
+        }
+        
+        .posts-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+        }
+        
+        .post-thumbnail {
+            position: relative;
+            aspect-ratio: 1/1;
+            background: var(--card-bg);
+            cursor: pointer;
+        }
+        
+        .post-preview {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            overflow: hidden;
+        }
+        
+        .code-preview {
+            font-family: monospace;
+            font-size: 12px;
+            text-align: center;
+            line-height: 1.4;
+            color: var(--text-color);
+        }
+        
+        .post-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .post-thumbnail:hover .post-overlay {
+            opacity: 1;
+        }
+        
+        .overlay-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            font-size: 12px;
+        }
+        
+        .no-posts {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-color);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: 5% auto;
+            padding: 20px;
+            border: none;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-color);
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            box-sizing: border-box;
+        }
+        
+        .save-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .save-btn:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .users-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .user-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .user-item:last-child {
+            border-bottom: none;
+        }
+        
+        .user-item img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .user-info {
+            flex-grow: 1;
+        }
+        
+        .user-name {
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .user-username {
+            font-size: 14px;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 20px;
+            color: #f44336;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading-posts {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+        
+        .share-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .share-btn {
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+        
+        .whatsapp { background-color: #25D366; color: white; }
+        .facebook { background-color: #4267B2; color: white; }
+        .instagram { background-color: #E1306C; color: white; }
+        .copy-link { background-color: var(--primary-color); color: white; }
+        
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .location-display {
+            margin-top: 10px;
+            padding: 8px;
+            background-color: var(--bg-color);
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+        }
+    
+    body {
+    }
+    
+    .profile-page {
+        min-height: 100vh;
+        overflow-y: auto;
+        padding-top: 0;
+    }
+    
+    .profile-header {
+        position: relative;
+    }
+    
+    .profile-stats {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        text-align: center;
+        margin-top: 20px;
+        width: 100%;
+    }
+    
+    .profile-info {
+        margin-top: 20px;
+    }
+
+    </style>
 </head>
 
 <body>
@@ -51,118 +494,640 @@
         </div>
     </div>
 
-    <div class="profile-container" data-location-enabled="{{ 'true' if user.location_enabled else 'false' }}">
+    <div class="profile-page">
+    <div class="profile-container">
         <div class="profile-header">
-            <div class="profile-info">
-                <div class="profile-avatar">
-                    <img src="{{ user.profile_image_url or 'https://via.placeholder.com/150' }}" alt="Profile Picture"
-                        id="profileImage">
-                    <button class="edit-avatar-btn" onclick="triggerImageUpload()">+</button>
-                    <input type="file" id="profileImageInput" accept="image/*" style="display: none;"
-                        onchange="uploadProfileImage(event)">
+            <div class="profile-avatar">
+                <img src="{{ user.profile_image_url or 'https://via.placeholder.com/150' }}" alt="Profile Picture"
+                    id="profileImage">
+            </div>
+            
+            <!-- Stats Section -->
+            <div class="profile-stats">
+                <div class="stat" onclick="showFollowersModal()">
+                    <span class="stat-number" id="postCount">0</span>
+                    <span class="stat-label">Posts</span>
                 </div>
-                <div class="profile-details">
-                    <h1>{{ user.first_name }} {{ user.last_name }}</h1>
-
-                    <h3>February 2026</h3>
-                    <button onclick="closeCalendarModal()" class="cal-close">×</button>
+                <div class="stat" onclick="showFollowersModal()">
+                    <span class="stat-number" id="followerCount">0</span>
+                    <span class="stat-label">Followers</span>
                 </div>
-                <div class="calendar-grid-container">
-                    <div class="weekday-header">
-                        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
-                    </div>
-                    <div id="calendar-grid" class="calendar-days-grid">
-                        <!-- Days with tooltips injected by JS -->
-                    </div>
+                <div class="stat" onclick="showFollowingModal()">
+                    <span class="stat-number" id="followingCount">0</span>
+                    <span class="stat-label">Following</span>
                 </div>
             </div>
         </div>
 
-        <div class="profile-presence" id="profilePresence"></div>
-    </div>
-    </div>
-
-    <div class="profile-bio">
-        <p>{{ user.bio or 'Code enthusiast 💻 | Building amazing things with AI ✨' }}</p>
-        <p class="profile-location">
-            {% if user.location_enabled and user.location %}
-            {{ user.location }}
-            {% else %}
-            🌍 Planet Earth
-            {% endif %}
-        </p>
-    </div>
-
-    <div class="profile-actions">
-        <button class="edit-profile-btn" onclick="editProfile()">Edit Profile</button>
-        <button class="share-profile-btn" onclick="shareProfile()">Share Profile</button>
-    </div>
-    </div>
-
-    <div class="profile-tabs">
-        <button class="tab-btn active" onclick="showProfileTab('posts')">Posts</button>
-        <button class="tab-btn" onclick="showProfileTab('saved')">Saved</button>
-        <button class="tab-btn" onclick="showProfileTab('liked')">Liked</button>
-    </div>
-
-    <div class="profile-content">
-        <div id="postsTab" class="tab-content active">
-            <div class="posts-grid" id="postsGrid"></div>
+        <!-- User Info Section -->
+        <div class="profile-info">
+            <h1 class="profile-username">{{ user.first_name }} {{ user.last_name }}</h1>
+            <p class="profile-bio">{{ user.bio or 'Code enthusiast 💻 | Building amazing things with AI ✨' }}</p>
+            <p class="profile-location">
+                {% if user.location_enabled and user.location %}
+                {{ user.location }}
+                {% else %}
+                🌍 Planet Earth
+                {% endif %}
+            </p>
         </div>
-        <div id="savedTab" class="tab-content">
-            <div class="posts-grid" id="savedPostsGrid"></div>
+
+        <!-- Action Buttons -->
+        <div class="profile-actions">
+            <button class="edit-profile-btn" onclick="openEditProfileModal()">Edit Profile</button>
+            <button class="share-profile-btn" onclick="shareProfile()">Share Profile</button>
         </div>
-        <div id="likedTab" class="tab-content">
-            <div class="posts-grid" id="likedPostsGrid"></div>
+
+        <!-- Profile Tabs -->
+        <div class="profile-tabs">
+            <button class="tab-btn active" onclick="showProfileTab('posts')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="3" y="3" width="7" height="7"/>
+                    <rect x="14" y="3" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                Posts
+            </button>
+            <button class="tab-btn" onclick="showProfileTab('saved')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+                Saved
+            </button>
+            <button class="tab-btn" onclick="showProfileTab('liked')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+                Liked
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="profile-content">
+            <div id="postsTab" class="tab-content active">
+                <div class="posts-grid" id="postsGrid">
+                    <div class="loading-posts">Loading posts...</div>
+                </div>
+            </div>
+            <div id="savedTab" class="tab-content">
+                <div class="posts-grid" id="savedPostsGrid">
+                    <div class="loading-posts">Loading saved posts...</div>
+                </div>
+            </div>
+            <div id="likedTab" class="tab-content">
+                <div class="posts-grid" id="likedPostsGrid">
+                    <div class="loading-posts">Loading liked posts...</div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Edit Profile Modal -->
+    <div id="editProfileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Profile</h2>
+                <span class="close" onclick="closeEditProfileModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editProfileForm">
+                    <div class="form-group">
+                        <label for="editFirstName">First Name</label>
+                        <input type="text" id="editFirstName" value="{{ user.first_name }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="editLastName">Last Name</label>
+                        <input type="text" id="editLastName" value="{{ user.last_name }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="editBio">Bio</label>
+                        <textarea id="editBio" rows="3">{{ user.bio or '' }}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editProfilePic">Profile Picture</label>
+                        <input type="file" id="editProfilePic" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label>Location</label>
+                        <div class="toggle-switch">
+                            <label class="switch">
+                                <input type="checkbox" id="locationToggle" {% if user.location_enabled %}checked{% endif %}>
+                                <span class="slider round"></span>
+                            </label>
+                            <span>Show my location</span>
+                        </div>
+                        <div id="locationDisplay" class="location-display">
+                            {% if user.location_enabled and user.location %}
+                                {{ user.location }}
+                            {% else %}
+                                🌍 Planet Earth
+                            {% endif %}
+                        </div>
+                    </div>
+                    <button type="submit" class="save-btn">Save Changes</button>
+                </form>
+            </div>
+        </div>
     </div>
 
-    <!-- Modals (Edit/Share) Removed for brevity but assume they exist below or simplified -->
+    <!-- Followers Modal -->
+    <div id="followersModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Followers</h2>
+                <span class="close" onclick="closeFollowersModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="followersList" class="users-list">
+                    <div class="loading">Loading followers...</div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="{{ url_for('static', filename='js/time_tracking.js') }}?v={{ range(1, 9999) | random }}"></script>
+    <!-- Following Modal -->
+    <div id="followingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Following</h2>
+                <span class="close" onclick="closeFollowingModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="followingList" class="users-list">
+                    <div class="loading">Loading following...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Profile Modal -->
+    <div id="shareModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Share Profile</h2>
+                <span class="close" onclick="closeShareModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="share-options">
+                    <button class="share-btn whatsapp" onclick="shareToWhatsApp()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                        </svg>
+                        WhatsApp
+                    </button>
+                    <button class="share-btn facebook" onclick="shareToFacebook()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12z"/>
+                        </svg>
+                        Facebook
+                    </button>
+                    <button class="share-btn instagram" onclick="shareToInstagram()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                        </svg>
+                        Instagram
+                    </button>
+                    <button class="share-btn copy-link" onclick="copyProfileLink()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M13.714 12c0-.398-.033-.787-.09-1.165l3.512-3.513c.81.81.81 2.12 0 2.93l-2.93 2.93c.02.17.03.34.03.518 0 2.206-1.794 4-4 4s-4-1.794-4-4 1.794-4 4-4c.17 0 .34.01.51.03l2.93-2.93c-.81-.81-2.12-.81-2.93 0l-3.513 3.512A5.96 5.96 0 008 12c0 3.31 2.69 6 6 6s6-2.69 6-6c0-.17-.01-.34-.03-.51l2.93-2.93c.81.81.81 2.12 0 2.93l-3.512 3.513a5.96 5.96 0 00.09-1.165h-2z"/>
+                        </svg>
+                        Copy Link
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Post Detail Modal -->
+    <div id="postModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Post Details</h2>
+                <span class="close" onclick="closePostModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="postModalContent">
+                    <div class="loading">Loading post...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js">
+    
+    // Post Modal Functions
+    function openPostModal(postId) {
+        const modal = document.getElementById('postModal');
+        const content = document.getElementById('postModalContent');
+        
+        // Show loading
+        content.innerHTML = '<div class="loading">Loading post...</div>';
+        modal.style.display = 'block';
+        
+        // Fetch post details
+        fetch(`/api/posts/${postId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.code) {
+                    content.innerHTML = `
+                        <div class="post-detail">
+                            <pre><code>${escapeHtml(data.code)}</code></pre>
+                            <div class="post-meta">
+                                <p><strong>Language:</strong> ${data.language || 'Unknown'}</p>
+                                <p><strong>Created:</strong> ${new Date(data.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = '<div class="error">Post not found</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading post:', error);
+                content.innerHTML = '<div class="error">Failed to load post</div>';
+            });
+    }
+    
+    function closePostModal() {
+        document.getElementById('postModal').style.display = 'none';
+    }
+    
+    </script>
     <script>
         const socket = io();
         const currentUserId = "{{ user.id }}";
 
-        // Simple Nav
-        function goBack() { window.history.back(); }
-
-        // Tabs
-        function showProfileTab(tabName) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            event.target.classList.add('active');
-            document.getElementById(tabName + 'Tab').classList.add('active');
-            if (tabName === 'posts') loadUserPosts();
+        // Navigation
+        function goBack() { 
+            window.history.back(); 
         }
 
-        // Dummy/Existing implementations for other features
-        async function loadUserPosts() {
-            const res = await fetch(`/api/user/${currentUserId}/posts`);
-            const data = await res.json();
-            const grid = document.getElementById('postsGrid');
-            if (data.posts) {
-                grid.innerHTML = data.posts.map(p => `<div class="post-item">${p.code.substring(0, 20)}</div>`).join('');
+        // Theme toggle
+        function toggleTheme() {
+            const currentTheme = document.body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            if (newTheme === 'dark') {
+                document.querySelector('.theme-icon.moon').style.display = 'none';
+                document.querySelector('.theme-icon.sun').style.display = 'block';
+            } else {
+                document.querySelector('.theme-icon.moon').style.display = 'block';
+                document.querySelector('.theme-icon.sun').style.display = 'none';
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            loadUserPosts();
-        });
-    </script>
-</body>
+        // Tab switching
+        function showProfileTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // Load content for the selected tab
+            if (tabName === 'posts') {
+                loadUserPosts();
+            } else if (tabName === 'saved') {
+                loadSavedPosts();
+            } else if (tabName === 'liked') {
+                loadLikedPosts();
+            }
+        }
+
+        // Load user posts
+        async function loadUserPosts() {
+            try {
+                const response = await fetch(`/api/user/${currentUserId}/posts`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const postsGrid = document.getElementById('postsGrid');
+                    
+                    if (data.posts && data.posts.length > 0) {
+                        postsGrid.innerHTML = data.posts.map(post => `
+                            <div class="post-thumbnail" onclick="openPostModal(${post.id})">
+                                <div class="post-preview">
+                                    <div class="code-preview">${escapeHtml(post.code.substring(0, 100))}${post.code.length > 100 ? '...' : ''}</div>
+                                </div>
+                                <div class="post-overlay">
+                                    <div class="overlay-stat">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                        </svg>
+                                        ${post.likes || 0}
+                                    </div>
+                                    <div class="overlay-stat">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                        </svg>
+                                        ${post.comments_count || 0}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                        
+                        // Update post count after loading posts
+                        updateCounts();
+                    } else {
+                        postsGrid.innerHTML = `
+                            <div class="no-posts">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                    <circle cx="12" cy="12" r="3"/>
+                                    <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/>
+                                </svg>
+                                <h3>No posts yet</h3>
+                                <p>You haven't shared any code yet.</p>
+                            </div>
+                        `;
+                        // Update post count after loading posts
+                        updateCounts();
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user posts:', error);
+            }
+        }
+
+        // Load saved posts
+        async function loadSavedPosts() {
+            try {
+                const response = await fetch(`/api/user/${currentUserId}/saved-posts`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const savedPostsGrid = document.getElementById('savedPostsGrid');
+                    
+                    if (data.posts && data.posts.length > 0) {
+                        savedPostsGrid.innerHTML = data.posts.map(post => `
+                            <div class="post-thumbnail" onclick="openPostModal(${post.id})">
+                                <div class="post-preview">
+                                    <div class="code-preview">${escapeHtml(post.code.substring(0, 100))}${post.code.length > 100 ? '...' : ''}</div>
+                                </div>
+                                <div class="post-overlay">
+                                    <div class="overlay-stat">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                        </svg>
+                                        ${post.likes || 0}
+                                    </div>
+                                    <div class="overlay-stat">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                        </svg>
+                                        ${post.comments_count || 0}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        savedPostsGrid.innerHTML = `
+                            <div class="no-posts">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                                </svg>
+                                <h3>No saved posts</h3>
+                                <p>You haven't saved any posts yet.</p>
+                            </div>
+                        `;
+                    }
+                    
+                    // Update counts after loading saved posts
+                    updateCounts();
+                }
+            } catch (error) {
+                console.error('Error loading saved posts:', error);
+            }
+        }
+
+        // Load liked posts
+        async function loadLikedPosts() {
+            try {
+                const response = await fetch(`/api/user/${currentUserId}/liked-posts`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const likedPostsGrid = document.getElementById('likedPostsGrid');
+                    
+                    if (data.posts && data.posts.length > 0) {
+                        likedPostsGrid.innerHTML = data.posts.map(post => `
+                            <div class="post-thumbnail" onclick="openPostModal(${post.id})">
+                                <div class="post-preview">
+                                    <div class="code-preview">${escapeHtml(post.code.substring(0, 100))}${post.code.length > 100 ? '...' : ''}</div>
+                                </div>
+                                <div class="post-overlay">
+                                    <div class="overlay-stat">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                        </svg>
+                                        ${post.likes || 0}
+                                    </div>
+                                    <div class="overlay-stat">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                        </svg>
+                                        ${post.comments_count || 0}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        likedPostsGrid.innerHTML = `
+                            <div class="no-posts">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                </svg>
+                                <h3>No liked posts</h3>
+                                <p>You haven't liked any posts yet.</p>
+                            </div>
+                        `;
+                    }
+                    
+                    // Update counts after loading liked posts
+                    updateCounts();
+                }
+            } catch (error) {
+                console.error('Error loading liked posts:', error);
+            }
+        }
+
+        // Modal functions
+        function openEditProfileModal() {
+            document.getElementById('editProfileModal').style.display = 'block';
+        }
+
+        function closeEditProfileModal() {
+            document.getElementById('editProfileModal').style.display = 'none';
+        }
+
+        function showFollowersModal() {
+            document.getElementById('followersModal').style.display = 'block';
+            loadFollowers();
+        }
+
+        function closeFollowersModal() {
+            document.getElementById('followersModal').style.display = 'none';
+        }
+
+        function showFollowingModal() {
+            document.getElementById('followingModal').style.display = 'block';
+            loadFollowing();
+        }
+
+        function closeFollowingModal() {
+            document.getElementById('followingModal').style.display = 'none';
+        }
+
+        function showShareModal() {
+            document.getElementById('shareModal').style.display = 'block';
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').style.display = 'none';
+        }
+
+        // Load followers
+        async function loadFollowers() {
+            try {
+                const response = await fetch(`/api/user/${currentUserId}/followers`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const followersList = document.getElementById('followersList');
+                    
+                    if (data.followers && data.followers.length > 0) {
+                        followersList.innerHTML = data.followers.map(follower => `
+                            <div class="user-item">
+                                <img src="${follower.profile_image_url || 'https://via.placeholder.com/40'}" alt="${follower.first_name} ${follower.last_name}">
+                                <div class="user-info">
+                                    <div class="user-name">${follower.first_name} ${follower.last_name}</div>
+                                    <div class="user-username">@${follower.username}</div>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        followersList.innerHTML = '<div class="no-data">No followers yet</div>';
+                    }
+                    
+                    // Update follower count after loading followers
+                    updateCounts();
+                }
+            } catch (error) {
+                console.error('Error loading followers:', error);
+                document.getElementById('followersList').innerHTML = '<div class="error">Failed to load followers</div>';
+            }
+        }
+
+        // Load following
+        async function loadFollowing() {
+            try {
+                const response = await fetch(`/api/user/${currentUserId}/following`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const followingList = document.getElementById('followingList');
+                    
+                    if (data.following && data.following.length > 0) {
+                        followingList.innerHTML = data.following.map(following => `
+                            <div class="user-item">
+                                <img src="${following.profile_image_url || 'https://via.placeholder.com/40'}" alt="${following.first_name} ${following.last_name}">
+                                <div class="user-info">
+                                    <div class="user-name">${following.first_name} ${following.last_name}</div>
+                                    <div class="user-username">@${following.username}</div>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        followingList.innerHTML = '<div class="no-data">Not following anyone yet</div>';
+                    }
+                    
+                    // Update following count after loading following
+                    updateCounts();
+                }
+            } catch (error) {
+                console.error('Error loading following:', error);
+                document.getElementById('followingList').innerHTML = '<div class="error">Failed to load following</div>';
+            }
+        }
+
+        // Edit profile form submission
+        document.getElementById('editProfileForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const firstName = document.getElementById('editFirstName').value;
+            const lastName = document.getElementById('editLastName').value;
+            const bio = document.getElementById('editBio').value;
+            const locationEnabled = document.getElementById('locationToggle').checked;
+            const profilePic = document.getElementById('editProfilePic').files[0];
+            
+            try {
+                // Update profile info
+                const response = await fetch('/api/update-profile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        first_name: firstName,
+                        last_name: lastName,
+                        bio: bio,
+                        location_enabled: locationEnabled
+                    })
+                });
+                
+                if (response.ok) {
+                    // If profile picture was selected, upload it separately
+                    if (profilePic) {
+                        const formData = new FormData();
+                        formData.append('profile_pic', profilePic);
+                        
+                        const picResponse = await fetch('/api/upload-profile-pic', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        if (picResponse.ok) {
+                            const picData = await picResponse.json();
+                            if (picData.success) {
+                                document.getElementById('profileImage').src = picData.profile_image_url;
+                            }
+                        }
+                    }
+                    
+                    // Update location display
+                    if (locationEnabled) {
+                        // Get current location if enabled
+                        if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(async function(position) {
+                                try {
+                                    const geoResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`);
+                                    const locationData = await geoResponse.json();
+                                    
+                                    if (locationData) {
+                                        const city = locationData.city || locationData.locality || '';
+                                        const country = locationData.countryName || '';
+                                        const countryCode = locationData.countryCode || '';
+                                        
+                                        const flagEmoji = getFlagEmoji(countryCode);
+                                        const locationText = city && country ? `${flagEmoji} ${city}, ${country}` : `${flagEmoji} ${country}`;
+                                        
+                                        document.getElementById('locationDisplay').textContent = locationText;
+                                        document.querySelector('.profile-location').textContent = locationText;
+                                    }
+                                } catch (err) {
+                                    document.getElementById('locationDisplay').textContent = '🌍 Planet Earth';
+                                    document.querySelector('.profile-location').textContent = '🌍 Planet Earth';
+                                }
+                            });
+                        }
+                    } else {
+                        document.getElementById('locationDisplay').textContent = '🌍 Planet Earth';
+                        document.querySelector('.profile-location').textContent = '🌍 Planet Earth';
+                    }
+                    
+                    closeEditProfileModal();
+    </div>
+    </body>
 
 </html>
-showNotification('Post saved!', 'success');
-} else {
-showNotification('Post unsaved', 'success');
-}
-}
-} catch (error) {
-console.error('Error saving post:', error);
-}
 }
 
 function formatCodePreview(code) {
@@ -220,395 +1185,6 @@ document.getElementById('profileImage').src = picResult.profile_image_url;
 
 // Close modal and show success message
 closeEditProfileModal();
-showNotification('Profile updated successfully!', 'success');
-
-// Reload page to show updated info
-setTimeout(() => {
-location.reload();
-}, 1000);
-} else {
-const errorData = await response.json();
-showNotification(errorData.error || 'Failed to update profile', 'error');
-}
-} catch (error) {
-showNotification('Error updating profile', 'error');
-}
-}
-
-// Handle location toggle in edit profile
-document.addEventListener('DOMContentLoaded', function () {
-// Add event listener for location toggle in edit profile
-const editLocationToggle = document.getElementById('editLocationToggle');
-if (editLocationToggle) {
-// Set initial state based on user setting
-const locationInfo = document.getElementById('locationInfo');
-if (!editLocationToggle.checked) {
-locationInfo.style.display = 'none';
-}
-
-editLocationToggle.addEventListener('change', function () {
-if (this.checked) {
-locationInfo.style.display = 'block';
-} else {
-locationInfo.style.display = 'none';
-}
-});
-}
-
-// Add event listener for update location button
-const updateLocationBtn = document.getElementById('updateLocationBtn');
-if (updateLocationBtn) {
-updateLocationBtn.addEventListener('click', updateCurrentLocation);
-}
-});
-
-async function updateCurrentLocation() {
-const locationInfo = document.getElementById('locationInfo');
-const currentLocation = document.getElementById('currentLocation');
-
-currentLocation.textContent = 'Getting your location...';
-
-if (navigator.geolocation) {
-navigator.geolocation.getCurrentPosition(
-async function (position) {
-try {
-// Get location details using reverse geocoding
-const response = await
-fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`);
-const locationData = await response.json();
-
-if (locationData) {
-// Format location string
-const city = locationData.city || locationData.locality || '';
-const state = locationData.principalSubdivision || '';
-const country = locationData.countryName || '';
-const countryCode = locationData.countryCode || '';
-
-// Get flag emoji from country code
-const flagEmoji = getFlagEmoji(countryCode);
-
-let locationString = '';
-if (city && country) {
-locationString = `${flagEmoji} ${city}, ${country}`;
-} else if (country) {
-locationString = `${flagEmoji} ${country}`;
-} else {
-locationString = 'Unknown Location';
-}
-
-currentLocation.innerHTML = `Current location: ${locationString}`;
-
-// Save location to server
-await saveLocation(locationString, true);
-} else {
-currentLocation.textContent = 'Unable to get location';
-}
-} catch (error) {
-console.error('Error getting location:', error);
-currentLocation.textContent = 'Error getting location';
-}
-},
-function (error) {
-console.error('Error getting location:', error);
-currentLocation.textContent = 'Location access denied';
-}
-);
-} else {
-currentLocation.textContent = 'Geolocation not supported';
-}
-}
-
-function toggleFilterDropdown(type) {
-const dropdown = document.getElementById(type + 'FilterContent');
-dropdown.classList.toggle('show');
-}
-
-// Close dropdown when clicking outside
-window.onclick = function (event) {
-if (!event.target.matches('.filter-btn')) {
-const dropdowns = document.getElementsByClassName('filter-content');
-for (let i = 0; i < dropdowns.length; i++) { const openDropdown=dropdowns[i]; if
-    (openDropdown.classList.contains('show')) { openDropdown.classList.remove('show'); } } } } async function
-    filterSavedPosts(filterType) { try { const response=await
-    fetch(`/api/user/${currentUserId}/saved-posts?filter=${filterType}`); if (response.ok) { const data=await
-    response.json(); const savedPostsGrid=document.getElementById('savedPostsGrid'); const
-    noSavedMessage=document.getElementById('noSavedMessage'); if (data.posts && data.posts.length> 0) {
-    noSavedMessage.style.display = 'none';
-    savedPostsGrid.innerHTML = data.posts.map(post => `
-    <div class="post-thumbnail" onclick="window.location.href='/post/${post.id}'">
-        <div class="post-preview">
-            <div class="code-preview">${escapeHtml(post.preview || post.code.substring(0, 100) + '...')}</div>
-        </div>
-        <div class="post-overlay">
-            <div class="overlay-stat">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path
-                        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-                ${post.likes}
-            </div>
-            <div class="overlay-stat">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                ${post.comments_count}
-            </div>
-        </div>
-    </div>
-    `).join('');
-    } else {
-    noSavedMessage.style.display = 'block';
-    savedPostsGrid.innerHTML = '';
-    }
-    }
-    } catch (error) {
-    console.error('Error filtering saved posts:', error);
-    }
-
-    // Close dropdown
-    document.getElementById('savedFilterContent').classList.remove('show');
-    }
-
-    async function filterLikedPosts(filterType) {
-    try {
-    const response = await fetch(`/api/user/${currentUserId}/liked-posts?filter=${filterType}`);
-    if (response.ok) {
-    const data = await response.json();
-    const likedPostsGrid = document.getElementById('likedPostsGrid');
-    const noLikedMessage = document.getElementById('noLikedMessage');
-
-    if (data.posts && data.posts.length > 0) {
-    noLikedMessage.style.display = 'none';
-    likedPostsGrid.innerHTML = data.posts.map(post => `
-    <div class="post-thumbnail" onclick="window.location.href='/post/${post.id}'">
-        <div class="post-preview">
-            <div class="code-preview">${escapeHtml(post.preview || post.code.substring(0, 100) + '...')}</div>
-        </div>
-        <div class="post-overlay">
-            <div class="overlay-stat">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path
-                        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-                ${post.likes}
-            </div>
-            <div class="overlay-stat">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                ${post.comments_count}
-            </div>
-        </div>
-    </div>
-    `).join('');
-    } else {
-    noLikedMessage.style.display = 'block';
-    likedPostsGrid.innerHTML = '';
-    }
-    }
-    } catch (error) {
-    console.error('Error filtering liked posts:', error);
-    }
-
-    // Close dropdown
-    document.getElementById('likedFilterContent').classList.remove('show');
-    }
-
-    async function loadFriends() {
-    try {
-    const response = await fetch('/api/friends');
-    if (response.ok) {
-    const data = await response.json();
-    const friendsList = document.getElementById('friendsList');
-
-    if (data && data.length > 0) {
-    friendsList.innerHTML = data.map(friend => `
-    <div class="friend-item">
-        <img src="${friend.image || 'https://via.placeholder.com/40'}" alt="${friend.name}">
-        <span>${friend.name}</span>
-        <input type="checkbox" class="friend-checkbox" value="${friend.id}">
-    </div>
-    `).join('');
-    } else {
-    friendsList.innerHTML = '<p>No friends found</p>';
-    }
-    }
-    } catch (error) {
-    console.error('Error loading friends:', error);
-    }
-    }
-
-    function shareVia(platform) {
-    const profileUrl = window.location.href;
-    let shareUrl = '';
-
-    switch (platform) {
-    case 'instagram':
-    // Instagram doesn't allow direct URL sharing, so we'll just copy the link
-    copyProfileLink();
-    break;
-    case 'whatsapp':
-    shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(profileUrl)}`;
-    window.open(shareUrl, '_blank');
-    break;
-    case 'facebook':
-    shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(profileUrl)}`;
-    window.open(shareUrl, '_blank');
-    break;
-    case 'twitter':
-    shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(profileUrl)}`;
-    window.open(shareUrl, '_blank');
-    break;
-    case 'linkedin':
-    shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(profileUrl)}`;
-    window.open(shareUrl, '_blank');
-    break;
-    }
-    }
-
-    function copyProfileLink() {
-    const profileUrl = window.location.href;
-    navigator.clipboard.writeText(profileUrl).then(() => {
-    showNotification('Profile link copied to clipboard!', 'success');
-    }).catch(err => {
-    showNotification('Failed to copy link', 'error');
-    });
-    }
-
-    async function toggleLocation() {
-    const locationToggle = document.getElementById('locationToggle');
-    const locationDisplay = document.getElementById('locationDisplay');
-
-    if (locationToggle.checked) {
-    // Try to get user's location
-    locationDisplay.innerHTML = '📍 Getting your location...';
-
-    if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-    async function (position) {
-    try {
-    // Get location details using reverse geocoding
-    const response = await
-    fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`);
-    const locationData = await response.json();
-
-    if (locationData) {
-    // Format location string
-    const city = locationData.city || locationData.locality || '';
-    const state = locationData.principalSubdivision || '';
-    const country = locationData.countryName || '';
-    const countryCode = locationData.countryCode || '';
-
-    // Get flag emoji from country code
-    const flagEmoji = getFlagEmoji(countryCode);
-
-    let locationString = '';
-    if (city && country) {
-    locationString = `${flagEmoji} ${city}, ${country}`;
-    } else if (country) {
-    locationString = `${flagEmoji} ${country}`;
-    } else {
-    locationString = '📍 Unknown Location';
-    }
-
-    locationDisplay.innerHTML = locationString;
-
-    // Save location to server
-    await saveLocation(locationString, true);
-    } else {
-    locationDisplay.innerHTML = '🌍 Planet Earth';
-    await saveLocation('Planet Earth', false);
-    }
-    } catch (error) {
-    console.error('Error getting location:', error);
-    locationDisplay.innerHTML = '🌍 Planet Earth';
-    await saveLocation('Planet Earth', false);
-    }
-    },
-    async function (error) {
-    console.error('Error getting location:', error);
-    locationDisplay.innerHTML = '🌍 Planet Earth';
-    await saveLocation('Planet Earth', false);
-    }
-    );
-    } else {
-    locationDisplay.innerHTML = '🌍 Planet Earth';
-    await saveLocation('Planet Earth', false);
-    }
-    } else {
-    // Turn off location
-    locationDisplay.innerHTML = '🌍 Planet Earth';
-    await saveLocation('Planet Earth', false);
-    }
-    }
-
-    async function saveLocation(location, enabled) {
-    try {
-    const response = await fetch('/api/update-location', {
-    method: 'POST',
-    headers: {
-    'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-    location: location,
-    location_enabled: enabled
-    })
-    });
-
-    if (!response.ok) {
-    console.error('Failed to save location');
-    }
-    } catch (error) {
-    console.error('Error saving location:', error);
-    }
-    }
-
-    function getFlagEmoji(countryCode) {
-    if (!countryCode) return '🌍';
-
-    const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map(char => 127397 + char.charCodeAt(0));
-    return String.fromCodePoint(...codePoints);
-    }
-
-    // Update notification badge
-    async function updateNotificationBadge() {
-    try {
-    const response = await fetch('/api/notifications/unread-count');
-    const data = await response.json();
-    const badge = document.getElementById('notificationBadge');
-    if (badge) {
-    badge.textContent = data.count;
-    badge.style.display = data.count > 0 ? 'flex' : 'none';
-    }
-    } catch (error) {
-    console.error('Failed to update notification badge:', error);
-    }
-    }
-
-    async function fetchUserPresence() {
-    try {
-    const response = await fetch(`/api/user-presence/${currentUserId}`);
-    if (response.ok) {
-    const data = await response.json();
-    const presenceElement = document.getElementById('profilePresence');
-
-    if (presenceElement) {
-    if (data.is_online) {
-    presenceElement.innerHTML = `<span class="presence-indicator online"></span> Online`;
-    } else {
-    presenceElement.innerHTML = `<span class="presence-indicator offline"></span> ${data.status}`;
-    }
-    }
-    }
-    } catch (error) {
-    console.error('Error fetching user presence:', error);
-    }
-    }
-
-    </script>
 
     <style>
         /* Modal Styles */
@@ -854,7 +1430,35 @@ for (let i = 0; i < dropdowns.length; i++) { const openDropdown=dropdowns[i]; if
             background-color: #94a3b8;
             /* Gray for offline */
         }
+    
+    body {
+    }
+    
+    .profile-page {
+        min-height: 100vh;
+        overflow-y: auto;
+        padding-top: 0;
+    }
+    
+    .profile-header {
+        position: relative;
+    }
+    
+    .profile-stats {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        text-align: center;
+        margin-top: 20px;
+        width: 100%;
+    }
+    
+    .profile-info {
+        margin-top: 20px;
+    }
+
     </style>
+    </div>
     </body>
 
     </html>
