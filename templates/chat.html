@@ -471,6 +471,89 @@
         .lightbox-close:hover {
             color: #bbb;
         }
+
+        /* Media fullscreen modal: image/video/file with download */
+        .media-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .media-modal.show { display: flex; }
+        .media-modal .media-close, .media-modal .media-download {
+            position: absolute;
+            color: #fff;
+            background: rgba(0,0,0,0.5);
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .media-modal .media-close { top: 20px; right: 20px; }
+        .media-modal .media-download { bottom: 20px; right: 20px; }
+        .media-modal .media-content { max-width: 95%; max-height: 85%; object-fit: contain; }
+        .media-modal video.media-content { width: 90%; max-height: 80%; }
+
+        /* Typing indicator */
+        .typing-indicator {
+            font-size: 0.85rem;
+            color: #888;
+            padding: 4px 12px;
+            font-style: italic;
+        }
+
+        /* Message status icons */
+        .message-status { margin-left: 4px; font-size: 0.75rem; }
+        .message-status.sent { color: #888; }
+        .message-status.delivered { color: #888; }
+        .message-status.seen { color: #007bff; }
+
+        /* Code message expand */
+        .code-message-preview { max-height: 120px; overflow: hidden; cursor: pointer; }
+        .code-message-full { max-height: 400px; overflow: auto; }
+
+        /* Code send modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            z-index: 1500;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            min-width: 400px;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow: auto;
+        }
+        .modal-box textarea { width: 100%; min-height: 200px; padding: 8px; border-radius: 8px; margin-bottom: 10px; }
+        .modal-box .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+
+        /* Call modal */
+        .call-modal { display: none; position: fixed; z-index: 2500; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; flex-direction: column; color: #fff; }
+        .call-modal.show { display: flex; }
+        .call-modal .call-duration { font-size: 1.5rem; margin: 1rem 0; }
+        .call-modal .call-actions { display: flex; gap: 1rem; margin-top: 1rem; }
+        .call-modal .call-actions button { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; font-size: 1.2rem; }
+        .call-modal .call-accept { background: #4CAF50; color: #fff; }
+        .call-modal .call-reject { background: #f44336; color: #fff; }
+        .call-modal .call-end { background: #f44336; color: #fff; }
+        .call-modal video { max-width: 100%; max-height: 50vh; border-radius: 8px; background: #000; }
+        .call-modal .remote-video { width: 100%; }
+        .call-modal .local-video { width: 200px; position: absolute; bottom: 80px; right: 20px; }
     </style>
 </head>
 
@@ -563,7 +646,8 @@
                 </div>
 
                 <div class="chat-messages" id="chatMessages">
-                    <!-- Messages will be loaded dynamically -->
+                    <div id="chatMessagesList"></div>
+                    <div id="typingIndicator" class="typing-indicator" style="display:none;">Typing...</div>
                 </div>
 
                 <div class="chat-input-container">
@@ -575,7 +659,7 @@
                         </svg>
                     </button>
                     <input type="text" id="chatInput" placeholder="Type a message..."
-                        onkeypress="handleChatEnter(event)">
+                        onkeypress="handleChatEnter(event)" oninput="emitTyping(true)">
                     <button class="code-btn" title="Share Code" onclick="shareCodeInChat()">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
@@ -605,6 +689,15 @@
         let allChats = [];
         let chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '{}');
         let searchTimeout;
+        let typingTimeout;
+        const MAX_FILE_SIZE_MB = 25;
+        let currentMediaUrl = '';
+        let callStartTime = null;
+        let callDurationInterval = null;
+        let peerConnection = null;
+        let localStream = null;
+        let currentCallPeerId = null;
+        let isVideoCall = true;
 
         function updateNavigationHistory() {
             const currentPath = window.location.pathname;
@@ -722,7 +815,10 @@
                     fetch(`/api/search-users-chat?q=${encodeURIComponent(searchTerm)}`)
                         .then(response => response.json())
                         .then(users => {
-                            displayChats(users);
+                            if (Array.isArray(users)) {
+                                allChats = users; // So openChat() can find the selected user when clicking a search result
+                                displayChats(users);
+                            }
                         })
                         .catch(error => {
                             console.error('Error searching users:', error);
@@ -798,22 +894,27 @@
                 badge.textContent = '0';
             }
 
-            // Update chat header info
+            // Update chat header info (from conversation list or from search results)
             let friend = null;
+            const userIdStr = String(userId);
             for (let conv of allChats) {
-                if (conv.other_user && conv.other_user.id === userId) {
+                if (conv.other_user && String(conv.other_user.id) === userIdStr) {
                     friend = conv.other_user;
                     break;
-                } else if (conv.id === userId) { // Fallback for search results
+                }
+                if (String(conv.id) === userIdStr) {
                     friend = conv;
                     break;
                 }
             }
 
             if (friend) {
-                document.querySelector('.current-chat-name').textContent = friend.name;
+                document.querySelector('.current-chat-name').textContent = friend.name || friend.username || 'User';
                 document.querySelector('.current-chat-avatar').src = friend.image || 'https://via.placeholder.com/32';
-                updateUserPresenceIndicator(friend);
+                updateUserPresenceIndicator({ user_id: friend.id, is_online: friend.is_online, last_seen: friend.last_seen });
+            } else {
+                document.querySelector('.current-chat-name').textContent = 'User';
+                document.querySelector('.current-chat-status').textContent = '';
             }
 
             // Load chat messages
@@ -830,91 +931,97 @@
             }
         }
 
-        function displayMessages(messages) {
-            const chatMessages = document.getElementById('chatMessages');
-            chatMessages.innerHTML = messages.map(msg => {
-                let messageContent = '';
+        function formatMessageStatus(isSent, status) {
+            if (!isSent) return '';
+            if (status === 'seen') return ' <span class="message-status seen" title="Seen">✓✓</span>';
+            if (status === 'delivered') return ' <span class="message-status delivered" title="Delivered">✓✓</span>';
+            return ' <span class="message-status sent" title="Sent">✓</span>';
+        }
 
-                // Handle file attachments or rich types
-                const type = msg.message_type || (msg.file_attachment ? msg.file_type : 'text');
-
-                if (msg.file_attachment) {
-                    if (type === 'image') {
-                        messageContent = `<img src="${msg.file_attachment}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" onclick="openImageLightbox('${msg.file_attachment}')">`;
-                    } else if (type === 'video') {
-                        messageContent = `<video controls style="max-width: 300px; max-height: 300px; border-radius: 8px;">
-                            <source src="${msg.file_attachment}" type="video/mp4">
-                            Your browser does not support the video tag.
-                        </video>`;
-                    } else if (type === 'pdf') {
-                        messageContent = `<a href="${msg.file_attachment}" target="_blank" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">
-                            📄 PDF Document
-                        </a>`;
-                    } else {
-                        messageContent = `<a href="${msg.file_attachment}" target="_blank" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">
-                            📎 Download File
-                        </a>`;
-                    }
-                } else if (type === 'code' || msg.code_snippet) {
-                    messageContent = `<div class="message-text code-message"><pre><code>${escapeHtml(msg.code_snippet || msg.content)}</code></pre></div>`;
+        function buildMessageContent(msg, isSent) {
+            const type = msg.message_type || (msg.file_attachment ? msg.file_type : 'text');
+            const url = (msg.file_attachment || '').replace(/'/g, "\\'");
+            if (msg.file_attachment) {
+                if (type === 'image') {
+                    return `<img src="${escapeHtml(url)}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" onclick="openMediaModal('image','${escapeHtml(url)}')">`;
+                } else if (type === 'video') {
+                    return `<video controls style="max-width: 300px; max-height: 300px; border-radius: 8px;" onclick="event.stopPropagation(); openMediaModal('video','${escapeHtml(url)}')">
+                        <source src="${escapeHtml(url)}" type="video/mp4">Your browser does not support the video tag.</video>`;
+                } else if (type === 'pdf') {
+                    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">📄 PDF Document</a> <button type="button" onclick="openMediaModal('file','${escapeHtml(url)}')" style="margin-left:8px;">Open</button>`;
                 } else {
-                    messageContent = msg.content || '';
+                    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">📎 Download File</a>`;
                 }
+            }
+            if (type === 'code' || msg.code_snippet) {
+                const raw = (msg.code_snippet || msg.content || '');
+                const preview = raw.length > 200 ? raw.slice(0, 200) + '...' : raw;
+                const safe = escapeHtml(preview);
+                const mid = (msg.id || 'noid').toString();
+                window._codeCache = window._codeCache || {};
+                window._codeCache[mid] = raw;
+                return `<div class="code-message-preview" data-msg-id="${mid}" onclick="toggleCodeExpand(this)"><pre><code>${safe}</code></pre></div><a href="#" onclick="downloadCodeAsTxt(this); return false;" data-msg-id="${mid}" style="font-size:0.85rem;">Download .txt</a>`;
+            }
+            return escapeHtml(msg.content || '');
+        }
 
+        function displayMessages(messages) {
+            const list = document.getElementById('chatMessagesList');
+            const container = document.getElementById('chatMessages');
+            list.innerHTML = messages.map(msg => {
                 const isSent = String(msg.sender_id) === String(currentUserId);
-
+                const status = msg.is_read ? 'seen' : 'delivered';
+                const messageContent = buildMessageContent(msg, isSent);
+                const statusHtml = formatMessageStatus(isSent, status);
                 return `
-                    <div class="message ${isSent ? 'sent' : 'received'}">
+                    <div class="message ${isSent ? 'sent' : 'received'}" data-message-id="${msg.id}">
                         ${!isSent ? `<img src="${msg.sender_image || 'https://via.placeholder.com/32'}" alt="Profile" class="message-avatar">` : ''}
                         <div class="message-content">
                             <div class="message-text">${messageContent}</div>
-                            <div class="message-time">${formatTime(msg.created_at)}</div>
+                            <div class="message-time">${formatTime(msg.created_at)}${statusHtml}</div>
                         </div>
                     </div>
                 `;
             }).join('');
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            container.scrollTop = container.scrollHeight;
         }
 
         function displayMessage(data) {
-            const chatMessages = document.getElementById('chatMessages');
+            const list = document.getElementById('chatMessagesList');
+            const container = document.getElementById('chatMessages');
             const isCurrentUser = String(data.sender_id) === String(currentUserId);
-
-            let messageContent = '';
-            const type = data.message_type || (data.file_attachment ? data.file_type : 'text');
-
-            if (data.file_attachment) {
-                if (type === 'image') {
-                    messageContent = `<img src="${data.file_attachment}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" onclick="openImageLightbox('${data.file_attachment}')">`;
-                } else if (type === 'video') {
-                    const videoType = data.file_attachment.endsWith('.webm') ? 'video/webm' : 'video/mp4';
-                    messageContent = `<video controls style="max-width: 300px; max-height: 300px; border-radius: 8px;">
-                        <source src="${data.file_attachment}" type="${videoType}">
-                        Your browser does not support the video tag.
-                    </video>`;
-                } else {
-                    messageContent = `<a href="${data.file_attachment}" target="_blank" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">
-                        📎 ${type.toUpperCase()} File
-                    </a>`;
-                }
-            } else if (type === 'code' || data.code_snippet) {
-                messageContent = `<div class="message-text code-message"><pre><code>${escapeHtml(data.code_snippet || data.content)}</code></pre></div>`;
-            } else {
-                messageContent = data.content || data.message;
-            }
+            const msgId = data.id;
+            const messageContent = buildMessageContent({
+                id: data.id,
+                message_type: data.message_type,
+                file_attachment: data.file_attachment,
+                file_type: data.file_type,
+                code_snippet: data.code_snippet,
+                content: data.content || data.message
+            }, isCurrentUser);
+            const status = isCurrentUser ? 'sent' : 'delivered';
+            const statusHtml = formatMessageStatus(isCurrentUser, status);
 
             const messageElement = document.createElement('div');
             messageElement.className = `message ${isCurrentUser ? 'sent' : 'received'}`;
+            if (msgId) messageElement.setAttribute('data-message-id', msgId);
             messageElement.innerHTML = `
                 ${!isCurrentUser ? `<img src="${data.sender_image || 'https://via.placeholder.com/32'}" alt="Profile" class="message-avatar">` : ''}
                 <div class="message-content">
                     <div class="message-text">${messageContent}</div>
-                    <div class="message-time">${formatTime(data.timestamp)}</div>
+                    <div class="message-time">${formatTime(data.timestamp || data.created_at)}${statusHtml}</div>
                 </div>
             `;
+            if (msgId && window._codeCache) {
+                const raw = (data.code_snippet || data.content || '');
+                if (raw) window._codeCache[msgId] = raw;
+            }
+            list.appendChild(messageElement);
+            container.scrollTop = container.scrollHeight;
 
-            chatMessages.appendChild(messageElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            if (!isCurrentUser && msgId && socket && socket.connected) {
+                socket.emit('message_delivered', { message_id: msgId });
+            }
         }
 
         function sendMessage() {
@@ -926,37 +1033,87 @@
                 return;
             }
 
-            if (message) {
+            if (!message) return;
+
+            const payload = { receiver_id: currentChatUser, content: message, message_type: 'text' };
+            const tempId = 'temp_' + Date.now();
+
+            function doSend(retriesLeft) {
                 fetch('/api/send-message', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        receiver_id: currentChatUser,
-                        content: message,
-                        message_type: 'text'
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 })
-                    .then(response => response.json())
-                    .then(data => {
+                    .then(function (response) {
+                        if (!response.ok) throw new Error('Network response not ok');
+                        return response.json();
+                    })
+                    .then(function (data) {
                         if (data.success) {
                             input.value = '';
-                            // Chat list will be updated via socket listener
+                            updateSidebarLastMessage(currentChatUser, message, 'text', new Date().toISOString());
+                            var existing = document.querySelector('[data-message-id="' + tempId + '"]');
+                            if (existing && data.message_id) existing.setAttribute('data-message-id', data.message_id);
                         } else {
-                            alert('Failed to send message: ' + (data.error || 'Unknown error'));
+                            if (retriesLeft > 0) {
+                                setTimeout(function () { doSend(retriesLeft - 1); }, 1000);
+                            } else {
+                                alert('Failed to send: ' + (data.error || 'Unknown error'));
+                            }
                         }
                     })
-                    .catch(error => {
-                        console.error('Error sending message:', error);
+                    .catch(function (err) {
+                        if (retriesLeft > 0) {
+                            setTimeout(function () { doSend(retriesLeft - 1); }, 1000);
+                        } else {
+                            console.error('Error sending message:', err);
+                        }
                     });
             }
+
+            appendOptimisticMessage(tempId, message, 'text');
+            input.value = '';
+            doSend(2);
+        }
+
+        function appendOptimisticMessage(tempId, content, messageType) {
+            var list = document.getElementById('chatMessagesList');
+            var container = document.getElementById('chatMessages');
+            var html = '<div class="message sent" data-message-id="' + tempId + '">' +
+                '<div class="message-content">' +
+                '<div class="message-text">' + escapeHtml(content) + '</div>' +
+                '<div class="message-time">' + formatTime(new Date().toISOString()) + ' <span class="message-status sent" title="Sent">✓</span></div>' +
+                '</div></div>';
+            list.insertAdjacentHTML('beforeend', html);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateSidebarLastMessage(userId, content, type, timestamp) {
+            var lastContent = content;
+            if (type === 'image') lastContent = 'Photo';
+            else if (type === 'video') lastContent = 'Video';
+            else if (type === 'code') lastContent = 'Code';
+            else if (type === 'file') lastContent = 'File';
+            else if (content && content.length > 30) lastContent = content.slice(0, 30) + '...';
+            var item = document.getElementById('chat-item-' + userId);
+            if (!item) return;
+            var lastEl = item.querySelector('.chat-last-message');
+            if (lastEl) lastEl.textContent = lastContent;
+            var timeEl = item.querySelector('.chat-time');
+            if (timeEl) timeEl.textContent = formatTime(timestamp);
         }
 
         function handleChatEnter(event) {
             if (event.key === 'Enter') {
                 sendMessage();
             }
+        }
+
+        function emitTyping(isStart) {
+            if (!currentChatUser || !socket || !socket.connected) return;
+            if (typingTimeout) clearTimeout(typingTimeout);
+            socket.emit(isStart ? 'typing_start' : 'typing_stop', { to_user_id: currentChatUser });
+            if (isStart) typingTimeout = setTimeout(function () { emitTyping(false); }, 2000);
         }
 
         function attachFile() {
@@ -972,50 +1129,56 @@
                 event.target.value = '';
                 return;
             }
+            if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+                alert('File too large. Maximum size is ' + MAX_FILE_SIZE_MB + 'MB.');
+                event.target.value = '';
+                return;
+            }
 
             const formData = new FormData();
             formData.append('file', file);
 
             // Instant UI feedback
-            const chatMessages = document.getElementById('chatMessages');
+            const list = document.getElementById('chatMessagesList');
+            const container = document.getElementById('chatMessages');
             const placeholder = document.createElement('div');
             placeholder.className = 'message sent';
             placeholder.innerHTML = `<div class="message-content"><div class="message-text">Uploading ${file.name}...</div></div>`;
-            chatMessages.appendChild(placeholder);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            list.appendChild(placeholder);
+            container.scrollTop = container.scrollHeight;
 
             // Step 1: Upload to server
-            fetch('/api/upload-file', {
-                method: 'POST',
-                body: formData
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (!data.success) throw new Error(data.error || 'Upload failed');
-
-                    // Step 2: Send message with file metadata
+            fetch('/api/upload-file', { method: 'POST', body: formData })
+                .then(function (res) { return res.json(); })
+                .then(function (uploadData) {
+                    if (!uploadData.success) throw new Error(uploadData.error || 'Upload failed');
                     return fetch('/api/send-message', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             receiver_id: currentChatUser,
                             content: '',
-                            message_type: data.file_type || 'file',
-                            file_attachment: data.file_path,
-                            file_type: data.file_type
+                            message_type: uploadData.file_type || 'file',
+                            file_attachment: uploadData.file_path,
+                            file_type: uploadData.file_type
                         })
+                    }).then(function (r) { return r.json(); }).then(function (sendRes) {
+                        placeholder.remove();
+                        if (!sendRes.success) {
+                            if (sendRes.error) alert('Upload failed: ' + sendRes.error);
+                            return;
+                        }
+                        event.target.value = '';
+                        if (sendRes.message_id) {
+                            var payload = { id: sendRes.message_id, sender_id: currentUserId, receiver_id: currentChatUser, message_type: uploadData.file_type || 'file', file_attachment: uploadData.file_path, file_type: uploadData.file_type, content: '', timestamp: new Date().toISOString(), sender_image: null };
+                            displayMessage(payload);
+                            updateSidebarLastMessage(currentChatUser, uploadData.file_type === 'image' ? 'Photo' : (uploadData.file_type === 'video' ? 'Video' : 'File'), uploadData.file_type || 'file', new Date().toISOString());
+                        }
                     });
                 })
-                .then(res => res.json())
-                .then(sendRes => {
+                .catch(function (err) {
                     placeholder.remove();
-                    if (!sendRes.success) throw new Error(sendRes.error || 'Message failed');
-                    event.target.value = ''; // Success reset
-                })
-                .catch(err => {
-                    placeholder.remove();
-                    console.error('Chat Upload Error:', err);
-                    alert('Upload failed: ' + err.message);
+                    if (err && err.message && err.message !== 'Upload failed') console.error('Chat Upload Error:', err);
                     event.target.value = '';
                 });
         }
@@ -1060,13 +1223,98 @@
         }
 
         function startVideoCall() {
-            alert('Video call feature will be implemented in a future update.');
+            if (!currentChatUser || !socket || !socket.connected) {
+                alert('Please select a chat and ensure you are connected.');
+                return;
+            }
+            isVideoCall = true;
+            startCallAsCaller(true);
         }
 
         function startVoiceCall() {
-            alert('Voice call feature will be implemented in a future update.');
+            if (!currentChatUser || !socket || !socket.connected) {
+                alert('Please select a chat and ensure you are connected.');
+                return;
+            }
+            isVideoCall = false;
+            startCallAsCaller(false);
         }
 
+        function startCallAsCaller(video) {
+            document.getElementById('activeCallText').textContent = 'Calling...';
+            document.getElementById('activeCallModal').classList.add('show');
+            document.getElementById('localVideo').style.display = video ? 'block' : 'none';
+            document.getElementById('remoteVideo').style.display = 'none';
+            currentCallPeerId = currentChatUser;
+            getUserMedia(video).then(function (stream) {
+                localStream = stream;
+                if (document.getElementById('localVideo')) document.getElementById('localVideo').srcObject = stream;
+                peerConnection = createPeerConnection(false);
+                if (peerConnection && stream.getTracks) {
+                    stream.getTracks().forEach(function (track) { peerConnection.addTrack(track, stream); });
+                } else if (peerConnection && peerConnection.addStream) {
+                    peerConnection.addStream(stream);
+                }
+                peerConnection.createOffer().then(function (offer) {
+                    return peerConnection.setLocalDescription(offer);
+                }).then(function () {
+                    socket.emit('call_request', { to_user_id: currentCallPeerId, offer: peerConnection.localDescription, is_video: video });
+                }).catch(function (err) { console.error(err); endCall(); });
+            }).catch(function (err) { console.error('getUserMedia failed', err); endCall(); });
+        }
+
+        function getUserMedia(video) {
+            return navigator.mediaDevices.getUserMedia({ audio: true, video: video ? true : false });
+        }
+
+        function createPeerConnection(isAnswer) {
+            var RTCPC = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
+            if (!RTCPC) return null;
+            var pc = new RTCPC({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            pc.onicecandidate = function (e) {
+                if (e.candidate && socket && currentCallPeerId)
+                    socket.emit('call_ice', { to_user_id: currentCallPeerId, candidate: e.candidate });
+            };
+            pc.onaddstream = function (e) {
+                var rv = document.getElementById('remoteVideo');
+                if (rv && e.stream) { rv.srcObject = e.stream; rv.style.display = 'block'; }
+            };
+            pc.ontrack = function (e) {
+                var rv = document.getElementById('remoteVideo');
+                if (rv && e.streams && e.streams[0]) { rv.srcObject = e.streams[0]; rv.style.display = 'block'; }
+            };
+            return pc;
+        }
+
+        function endCall() {
+            if (callDurationInterval) clearInterval(callDurationInterval);
+            callDurationInterval = null;
+            callStartTime = null;
+            document.getElementById('activeCallModal').classList.remove('show');
+            document.getElementById('incomingCallModal').classList.remove('show');
+            if (localStream) { localStream.getTracks().forEach(function (t) { t.stop(); }); localStream = null; }
+            if (peerConnection) { peerConnection.close(); peerConnection = null; }
+            if (currentCallPeerId && socket) socket.emit('call_end', { to_user_id: currentCallPeerId });
+            currentCallPeerId = null;
+            var rv = document.getElementById('remoteVideo');
+            if (rv) { rv.srcObject = null; rv.style.display = 'none'; }
+            var lv = document.getElementById('localVideo');
+            if (lv) { lv.srcObject = null; lv.style.display = 'none'; }
+        }
+
+        function startCallDuration() {
+            callStartTime = Date.now();
+            var el = document.getElementById('activeCallDuration');
+            if (!el) return;
+            callDurationInterval = setInterval(function () {
+                var s = Math.floor((Date.now() - callStartTime) / 1000);
+                var m = Math.floor(s / 60);
+                el.textContent = (m < 10 ? '0' : '') + m + ':' + (s % 60 < 10 ? '0' : '') + (s % 60);
+            }, 1000);
+        }
+    </script>
+
+    <script>
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
@@ -1106,24 +1354,47 @@
             // Initialize Socket.IO
             socket = io();
 
-            // Join user's personal room for events
+            // Log connection state and join personal room
             socket.on('connect', () => {
-                console.log('Socket connected');
+                console.log('Socket Connected:', socket.id);
                 // Backend now joins us to user_{{ user.id }} automatically on connect,
                 // but we can explicitly emit to be safe if desired.
                 socket.emit('join', { room: `user_${currentUserId}` });
                 socket.emit('chat_window_opened', { status: 'online', page: 'chat' });
             });
 
-            // Socket event listeners
+            socket.on('disconnect', (reason) => {
+                console.log('Socket Disconnected:', reason);
+            });
+
             socket.on('new_message', function (data) {
-                console.log('New message received:', data);
-                // If it's for current chat, display it immediately
-                if (currentChatUser && (String(data.sender_id) === String(currentChatUser) || String(data.receiver_id) === String(currentChatUser))) {
+                var isFromOther = String(data.sender_id) !== String(currentUserId);
+                var isForCurrentChat = currentChatUser && (String(data.sender_id) === String(currentChatUser) || String(data.receiver_id) === String(currentChatUser));
+                if (isForCurrentChat && isFromOther) {
                     displayMessage(data);
+                } else if (isForCurrentChat && !isFromOther) {
+                    var existing = document.querySelector('[data-message-id="' + (data.id || '') + '"]');
+                    if (!existing) displayMessage(data);
                 }
-                // Update chat list for snippets and unread badges
-                loadChats();
+                updateSidebarLastMessage(isFromOther ? data.sender_id : data.receiver_id, data.content || data.message || (data.message_type === 'code' ? 'Code' : (data.file_attachment ? 'File' : '')), data.message_type || 'text', data.timestamp || data.created_at);
+            });
+            socket.on('message_status', function (data) {
+                var ids = data.message_ids || (data.message_id ? [data.message_id] : []);
+                var status = data.status || 'delivered';
+                ids.forEach(function (mid) {
+                    var el = document.querySelector('.message[data-message-id="' + mid + '"]');
+                    if (!el) return;
+                    var timeDiv = el.querySelector('.message-time');
+                    if (!timeDiv) return;
+                    var oldStatus = timeDiv.querySelector('.message-status');
+                    if (oldStatus) oldStatus.remove();
+                    var span = document.createElement('span');
+                    span.className = 'message-status ' + status;
+                    span.title = status === 'seen' ? 'Seen' : (status === 'delivered' ? 'Delivered' : 'Sent');
+                    span.textContent = status === 'seen' ? '✓✓' : (status === 'delivered' ? '✓✓' : '✓');
+                    if (status === 'seen') span.style.color = '#007bff';
+                    timeDiv.appendChild(span);
+                });
             });
 
             socket.on('unread_count_update', function (data) {
@@ -1142,6 +1413,79 @@
 
             socket.on('user_presence_update', function (data) {
                 updateUserPresenceIndicator(data);
+            });
+            socket.on('typing_start', function (data) {
+                if (currentChatUser && String(data.from_user_id) === String(currentChatUser)) {
+                    var el = document.getElementById('typingIndicator');
+                    if (el) { el.style.display = 'block'; el.textContent = (data.from_user_name || 'Someone') + ' is typing...'; }
+                }
+            });
+            socket.on('typing_stop', function (data) {
+                if (currentChatUser && String(data.from_user_id) === String(currentChatUser)) {
+                    var el = document.getElementById('typingIndicator');
+                    if (el) el.style.display = 'none';
+                }
+            });
+
+            socket.on('call_request', function (data) {
+                window._incomingCallFrom = data.from_user_id;
+                window._incomingCallOffer = data.offer;
+                window._incomingCallVideo = data.is_video !== false;
+                document.getElementById('incomingCallText').textContent = (data.from_user_name || 'Someone') + ' is calling...';
+                document.getElementById('incomingCallModal').classList.add('show');
+            });
+            socket.on('call_answer', function (data) {
+                if (!peerConnection || !data.answer) return;
+                peerConnection.setRemoteDescription(new (window.RTCSessionDescription || window.webkitRTCSessionDescription)(data.answer)).catch(function (e) { console.error(e); });
+                startCallDuration();
+            });
+            socket.on('call_ice', function (data) {
+                if (!peerConnection || !data.candidate) return;
+                peerConnection.addIceCandidate(new (window.RTCIceCandidate || window.webkitRTCIceCandidate)(data.candidate)).catch(function (e) { console.error(e); });
+            });
+            socket.on('call_end', function () {
+                endCall();
+            });
+            socket.on('call_reject', function () {
+                document.getElementById('activeCallModal').classList.remove('show');
+                currentCallPeerId = null;
+                if (peerConnection) { peerConnection.close(); peerConnection = null; }
+                if (localStream) { localStream.getTracks().forEach(function (t) { t.stop(); }); localStream = null; }
+            });
+
+            document.getElementById('endCallBtn').addEventListener('click', endCall);
+            document.getElementById('incomingCallAccept').addEventListener('click', function () {
+                if (!window._incomingCallFrom || !window._incomingCallOffer) return;
+                document.getElementById('incomingCallModal').classList.remove('show');
+                currentCallPeerId = window._incomingCallFrom;
+                isVideoCall = window._incomingCallVideo;
+                document.getElementById('activeCallText').textContent = 'Connecting...';
+                document.getElementById('activeCallModal').classList.add('show');
+                document.getElementById('localVideo').style.display = isVideoCall ? 'block' : 'none';
+                document.getElementById('remoteVideo').style.display = 'none';
+                getUserMedia(isVideoCall).then(function (stream) {
+                    localStream = stream;
+                    document.getElementById('localVideo').srcObject = stream;
+                    peerConnection = createPeerConnection(true);
+                    if (peerConnection && stream.getTracks) stream.getTracks().forEach(function (t) { peerConnection.addTrack(t, stream); });
+                    else if (peerConnection && peerConnection.addStream) peerConnection.addStream(stream);
+                    peerConnection.setRemoteDescription(new (window.RTCSessionDescription || window.webkitRTCSessionDescription)(window._incomingCallOffer)).then(function () {
+                        return peerConnection.createAnswer();
+                    }).then(function (answer) {
+                        return peerConnection.setLocalDescription(answer);
+                    }).then(function () {
+                        socket.emit('call_answer', { to_user_id: currentCallPeerId, answer: peerConnection.localDescription });
+                        startCallDuration();
+                    }).catch(function (e) { console.error(e); endCall(); });
+                }).catch(function (e) { console.error(e); endCall(); });
+                window._incomingCallFrom = null;
+                window._incomingCallOffer = null;
+            });
+            document.getElementById('incomingCallReject').addEventListener('click', function () {
+                if (window._incomingCallFrom && socket) socket.emit('call_reject', { to_user_id: window._incomingCallFrom });
+                document.getElementById('incomingCallModal').classList.remove('show');
+                window._incomingCallFrom = null;
+                window._incomingCallOffer = null;
             });
 
             // Load chats
@@ -1172,19 +1516,19 @@
 
         // Add function to update user presence indicators
         function updateUserPresenceIndicator(data) {
-            const statusIndicator = document.getElementById(`online-status-${data.user_id}`);
+            const uid = data.user_id || data.id;
+            if (!uid) return;
+            const statusIndicator = document.getElementById(`online-status-${uid}`);
             if (statusIndicator) {
                 if (data.is_online) {
                     statusIndicator.className = 'online-status-indicator online';
                     statusIndicator.title = 'Online';
                 } else {
                     statusIndicator.className = 'online-status-indicator offline';
-                    statusIndicator.title = formatLastSeenTooltip(data.last_seen);
+                    statusIndicator.title = data.last_seen ? formatLastSeenLabel(data.last_seen) : 'Offline';
                 }
             }
-
-            // Update chat header if this is the current chat user
-            if (currentChatUser === data.user_id) {
+            if (String(currentChatUser) === String(uid)) {
                 const statusElement = document.querySelector('.current-chat-status');
                 if (statusElement) {
                     if (data.is_online) {
@@ -1214,64 +1558,191 @@
         }
 
         function formatLastSeenLabel(lastSeenIso) {
-            if (!lastSeenIso) return 'Last seen: unknown';
-            const lastSeen = new Date(lastSeenIso);
-            const diffMs = Date.now() - lastSeen.getTime();
-            const diffMin = Math.max(0, Math.floor(diffMs / 60000));
-            if (diffMin < 1) return 'Last seen: just now';
-            if (diffMin === 1) return 'Last seen: 1 minute ago';
-            if (diffMin < 60) return `Last seen: ${diffMin} minutes ago`;
-            const diffHr = Math.floor(diffMin / 60);
-            if (diffHr === 1) return 'Last seen: 1 hour ago';
-            if (diffHr < 24) return `Last seen: ${diffHr} hours ago`;
-            const diffDays = Math.floor(diffHr / 24);
-            return `Last seen: ${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+            if (!lastSeenIso) return 'Offline';
+            const d = new Date(lastSeenIso);
+            const h = d.getHours();
+            const m = d.getMinutes();
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            const minStr = m < 10 ? '0' + m : m;
+            return `Last seen at ${h12}:${minStr} ${ampm}`;
         }
 
         function autoSelectChat(friends) {
-            // Show "Select a chat" only when there are 0 friends
             if (!friends || friends.length === 0) {
                 showFriendSelection();
                 return;
             }
-
-            // Check if there's a last chat in history
-            if (chatHistory.lastChat && friends.some(f => f.id === chatHistory.lastChat)) {
-                // Open the last chat
-                setTimeout(() => {
-                    openChat(chatHistory.lastChat);
-                }, 100);
-            } else if (friends && friends.length > 0) {
-                // Open the first chat (most recent)
-                setTimeout(() => {
-                    openChat(friends[0].id);
-                }, 100);
+            function otherId(c) { return (c.other_user && c.other_user.id) ? c.other_user.id : c.id; }
+            if (chatHistory.lastChat && friends.some(function (f) { return otherId(f) === chatHistory.lastChat; })) {
+                setTimeout(function () { openChat(chatHistory.lastChat); }, 100);
             } else {
-                // No friends, show friend selection for first-time users
-                showFriendSelection();
+                setTimeout(function () { openChat(otherId(friends[0])); }, 100);
             }
         }
 
         function openImageLightbox(imageSrc) {
-            const lightbox = document.getElementById('imageLightbox');
-            const lightboxImg = document.getElementById('lightboxImage');
-            lightboxImg.src = imageSrc;
-            lightbox.style.display = 'flex';
+            openMediaModal('image', imageSrc);
         }
 
         function closeImageLightbox() {
-            const lightbox = document.getElementById('imageLightbox');
-            lightbox.style.display = 'none';
-            document.getElementById('lightboxImage').src = '';
+            closeMediaModal();
+        }
+
+        function openMediaModal(type, url) {
+            currentMediaUrl = url || '';
+            var modal = document.getElementById('mediaModal');
+            var img = document.getElementById('mediaImage');
+            var video = document.getElementById('mediaVideo');
+            var fileLink = document.getElementById('mediaFileLink');
+            var downloadBtn = document.getElementById('mediaDownloadBtn');
+            img.style.display = 'none';
+            video.style.display = 'none';
+            fileLink.style.display = 'none';
+            video.src = '';
+            if (type === 'image') {
+                img.src = url;
+                img.style.display = 'block';
+                downloadBtn.style.display = 'block';
+            } else if (type === 'video') {
+                video.src = url;
+                video.style.display = 'block';
+                downloadBtn.style.display = 'block';
+            } else {
+                fileLink.href = url;
+                fileLink.textContent = 'Open / Download file';
+                fileLink.style.display = 'inline-block';
+                downloadBtn.style.display = 'block';
+            }
+            modal.classList.add('show');
+        }
+
+        function closeMediaModal() {
+            document.getElementById('mediaModal').classList.remove('show');
+            document.getElementById('mediaVideo').pause();
+            currentMediaUrl = '';
+        }
+
+        function downloadMedia() {
+            if (!currentMediaUrl) return;
+            var a = document.createElement('a');
+            a.href = currentMediaUrl;
+            a.download = currentMediaUrl.split('/').pop() || 'download';
+            a.target = '_blank';
+            a.click();
+        }
+
+        function toggleCodeExpand(el) {
+            var msgId = el.getAttribute('data-msg-id');
+            var code = (window._codeCache && window._codeCache[msgId]) ? window._codeCache[msgId] : '';
+            if (el.classList.contains('code-message-full')) {
+                var preview = code.length > 200 ? code.slice(0, 200) + '...' : code;
+                el.classList.remove('code-message-full');
+                el.innerHTML = '<pre><code>' + escapeHtml(preview) + '</code></pre>';
+            } else {
+                el.classList.add('code-message-full');
+                el.innerHTML = '<pre><code>' + escapeHtml(code) + '</code></pre>';
+            }
+        }
+
+        function downloadCodeAsTxt(linkEl) {
+            var msgId = linkEl.getAttribute('data-msg-id');
+            var code = (window._codeCache && window._codeCache[msgId]) ? window._codeCache[msgId] : '';
+            var blob = new Blob([code], { type: 'text/plain' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'code_' + (msgId || Date.now()) + '.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function shareCodeInChat() {
+            if (!currentChatUser) {
+                alert('Please select a chat first.');
+                return;
+            }
+            document.getElementById('codeSendText').value = (sessionStorage.getItem('uploadedCode') || '').trim();
+            document.getElementById('codeSendModal').classList.add('show');
+        }
+
+        function closeCodeSendModal() {
+            document.getElementById('codeSendModal').classList.remove('show');
+        }
+
+        function submitCodeMessage() {
+            var raw = (document.getElementById('codeSendText').value || '').trim();
+            if (!raw) return;
+            var sanitized = escapeHtml(raw).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+            closeCodeSendModal();
+            fetch('/api/send-message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    receiver_id: currentChatUser,
+                    content: '',
+                    message_type: 'code',
+                    code_snippet: raw
+                })
+            }).then(function (r) { return r.json(); }).then(function (data) {
+                if (data.success) {
+                    var payload = { id: data.message_id, sender_id: currentUserId, receiver_id: currentChatUser, message_type: 'code', code_snippet: raw, content: '', timestamp: new Date().toISOString(), sender_image: null };
+                    displayMessage(payload);
+                    updateSidebarLastMessage(currentChatUser, 'Code', 'code', new Date().toISOString());
+                } else if (data.error) {
+                    alert('Failed to send code: ' + data.error);
+                }
+            }).catch(function () {});
         }
     </script>
 
-    <!-- Image Lightbox -->
+    <!-- Image Lightbox (legacy) -->
     <div id="imageLightbox" class="image-lightbox" onclick="closeImageLightbox()">
-        <button class="lightbox-close" onclick="closeImageLightbox()">&times;</button>
+        <button class="lightbox-close" onclick="closeImageLightbox(); event.stopPropagation();">&times;</button>
         <img id="lightboxImage" class="lightbox-content" src="" alt="Full size image" onclick="event.stopPropagation()">
+    </div>
+
+    <!-- Media modal: image/video/file with download -->
+    <div id="mediaModal" class="media-modal" onclick="if(event.target===this) closeMediaModal()">
+        <button type="button" class="media-close" onclick="closeMediaModal(); event.stopPropagation();">&times; Close</button>
+        <button type="button" class="media-download" id="mediaDownloadBtn" onclick="downloadMedia(); event.stopPropagation();">Download</button>
+        <img id="mediaImage" class="media-content" style="display:none;" alt="Image" onclick="event.stopPropagation()">
+        <video id="mediaVideo" class="media-content" controls style="display:none;" onclick="event.stopPropagation()"></video>
+        <a id="mediaFileLink" href="#" target="_blank" rel="noopener" style="display:none; color:#fff; padding:1rem;" onclick="event.stopPropagation()">Open / Download file</a>
+    </div>
+
+    <!-- Code send modal -->
+    <div id="codeSendModal" class="modal-overlay" onclick="if(event.target===this) closeCodeSendModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <h3 style="margin-top:0;">Share Code</h3>
+            <textarea id="codeSendText" placeholder="Paste your code here..."></textarea>
+            <div class="modal-actions">
+                <button type="button" onclick="closeCodeSendModal()">Cancel</button>
+                <button type="button" onclick="submitCodeMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Incoming call modal -->
+    <div id="incomingCallModal" class="call-modal">
+        <p id="incomingCallText">Incoming call...</p>
+        <div class="call-duration" id="incomingCallDuration"></div>
+        <div class="call-actions">
+            <button type="button" class="call-accept" id="incomingCallAccept" title="Accept">&#9742;</button>
+            <button type="button" class="call-reject" id="incomingCallReject" title="Reject">&#9741;</button>
+        </div>
+    </div>
+
+    <!-- Outgoing / active call modal -->
+    <div id="activeCallModal" class="call-modal">
+        <p id="activeCallText">Calling...</p>
+        <div class="call-duration" id="activeCallDuration">00:00</div>
+        <video id="localVideo" class="local-video" autoplay muted playsinline style="display:none;"></video>
+        <video id="remoteVideo" class="remote-video" autoplay playsinline style="display:none;"></video>
+        <div class="call-actions">
+            <button type="button" class="call-end" id="endCallBtn" title="End call">&#9741;</button>
+        </div>
     </div>
 </body>
 
-</html>
 </html>

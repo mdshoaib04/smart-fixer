@@ -72,9 +72,12 @@ with app.app_context():
     # Only create tables if they don't exist, don't drop them
     db.create_all()
     
-    # Pre-load Local AI module for fast dictionary response
-    print("\n[AI Setup] Pre-loading Local AI module...")
-    import ai_helper
+    # Pre-load Local AI module in background so server starts immediately
+    def _load_ai_background():
+        print("\n[AI Setup] Loading Local AI module in background...")
+        import ai_helper
+    import threading
+    threading.Thread(target=_load_ai_background, daemon=True).start()
 
 @login_manager.user_loader
 def load_user(user_id):

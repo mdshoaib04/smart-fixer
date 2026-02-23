@@ -84,68 +84,65 @@ def register_routes():
     @app.route('/api/search-users', methods=['GET'])
     @require_login
     def api_search_users():
-        """Search users by username, email, or full name for Explore page."""
-        query = request.args.get('q', '').strip()
+        """Search users by username, email, or first/last name for Explore page."""
+        try:
+            query = request.args.get('q', '').strip()
 
-        if not query:
-            return jsonify({'users': []})
+            if not query:
+                return jsonify({'users': []})
 
-        # Build case-insensitive search across username, email, first/last name and full name
-        like_pattern = f'%{query}%'
-        full_name_expr = db.func.concat(
-            db.func.coalesce(User.first_name, ''),
-            ' ',
-            db.func.coalesce(User.last_name, ''),
-        )
-
-        users = (
-            User.query.filter(
-                (User.username.ilike(like_pattern))
-                | (User.email.ilike(like_pattern))
-                | (User.first_name.ilike(like_pattern))
-                | (User.last_name.ilike(like_pattern))
-                | (full_name_expr.ilike(like_pattern))
+            # Case-insensitive search on username, email, first_name, last_name (SQLite-safe, no concat)
+            like_pattern = f'%{query}%'
+            users = (
+                User.query.filter(
+                    (User.username.ilike(like_pattern))
+                    | (User.email.ilike(like_pattern))
+                    | (User.first_name.ilike(like_pattern))
+                    | (User.last_name.ilike(like_pattern))
+                )
+                .limit(20)
+                .all()
             )
-            .limit(20)
-            .all()
-        )
 
-        user_list = []
-        for user in users:
-            # Check if current user already follows this user
-            is_following = (
-                Follower.query.filter_by(
-                    user_id=user.id, follower_id=current_user.id
+            user_list = []
+            for user in users:
+                # Check if current user already follows this user
+                is_following = (
+                    Follower.query.filter_by(
+                        user_id=user.id, follower_id=current_user.id
+                    ).first()
+                    is not None
+                )
+                # Check if there's a pending follow request from current user to this user
+                pending_request = FollowRequest.query.filter_by(
+                    from_user_id=current_user.id,
+                    to_user_id=user.id,
+                    status='pending'
                 ).first()
-                is not None
-            )
-            # Check if there's a pending follow request from current user to this user
-            pending_request = FollowRequest.query.filter_by(
-                from_user_id=current_user.id,
-                to_user_id=user.id,
-                status='pending'
-            ).first()
 
-            if is_following:
-                follow_status = 'following'
-            elif pending_request:
-                follow_status = 'pending'
-            else:
-                follow_status = 'none'
+                if is_following:
+                    follow_status = 'following'
+                elif pending_request:
+                    follow_status = 'pending'
+                else:
+                    follow_status = 'none'
 
-            user_list.append(
-                {
-                    'id': user.id,
-                    'username': user.username,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'profile_image_url': user.profile_image_url,
-                    'is_following': is_following,
-                    'follow_status': follow_status,
-                }
-            )
+                user_list.append(
+                    {
+                        'id': user.id,
+                        'username': user.username,
+                        'first_name': user.first_name or '',
+                        'last_name': user.last_name or '',
+                        'profile_image_url': user.profile_image_url,
+                        'is_following': is_following,
+                        'follow_status': follow_status,
+                    }
+                )
 
-        return jsonify({'users': user_list})
+            return jsonify({'users': user_list})
+        except Exception as e:
+            print(f"Error searching users: {e}")
+            return jsonify({'users': [], 'error': str(e)}), 500
 
     @app.route('/user/<user_id>')
     @require_login
@@ -389,19 +386,15 @@ def register_routes():
             
 
             user_list = []
-
             for user in users:
-
+                last_seen = getattr(user, 'last_seen', None)
                 user_list.append({
-
                     'id': user.id,
-
-                    'name': user.full_name,
-
+                    'name': getattr(user, 'full_name', None) or user.username or 'User',
                     'username': user.username,
-
-                    'image': user.profile_image_url
-
+                    'image': user.profile_image_url,
+                    'is_online': getattr(user, 'is_online', False),
+                    'last_seen': last_seen.isoformat() if last_seen else None
                 })
 
             
@@ -480,7 +473,11 @@ def register_routes():
 
                     'username': user.username,
 
-                    'image': user.profile_image_url
+                    'image': user.profile_image_url,
+
+                    'is_online': getattr(user, 'is_online', False),
+
+                    'last_seen': user.last_seen.isoformat() if getattr(user, 'last_seen', None) else None
 
                 })
 
@@ -853,16 +850,26 @@ def register_routes():
         try:
             conv = get_or_create_conversation(current_user.id, user_id)
             
-            # Mark messages as read
-            Message.query.filter_by(
+            # Mark messages as read and get ids for seen notification
+            to_mark = Message.query.filter_by(
                 conversation_id=conv.id, 
                 receiver_id=current_user.id, 
                 is_read=False
-            ).update({'is_read': True})
+            ).all()
+            seen_ids = [m.id for m in to_mark]
+            other_user_id = conv.user2_id if str(conv.user1_id) == str(current_user.id) else conv.user1_id
+            for m in to_mark:
+                m.is_read = True
             db.session.commit()
             
             # Emit unread count update for the user
             emit_unread_count(current_user.id)
+            # Notify sender that messages were seen
+            if seen_ids and other_user_id:
+                socketio.emit('message_status', {
+                    'message_ids': seen_ids,
+                    'status': 'seen'
+                }, room=f'user_{other_user_id}')
             
             messages = Message.query.filter_by(conversation_id=conv.id).order_by(Message.created_at.asc()).all()
             
@@ -992,7 +999,7 @@ def register_routes():
     @app.route('/api/upload-file', methods=['POST'])
     @require_login
     def api_upload_file():
-        """Final fix for file uploads using absolute paths and secure filenames"""
+        """Final fix for file uploads using absolute paths and secure filenames. Max 25MB."""
         try:
             if 'file' not in request.files:
                 return jsonify({'success': False, 'error': 'No file segment found'}), 400
@@ -1000,6 +1007,13 @@ def register_routes():
             file = request.files['file']
             if file.filename == '':
                 return jsonify({'success': False, 'error': 'No file selected'}), 400
+            
+            # Max file size 25MB
+            file.seek(0, 2)
+            size = file.tell()
+            file.seek(0)
+            if size > 25 * 1024 * 1024:
+                return jsonify({'success': False, 'error': 'File too large. Maximum size is 25MB.'}), 400
             
             # Absolute directory management
             base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1813,6 +1827,16 @@ def register_routes():
             except Exception:
                 pass
 
+# Map socket sid -> user_id for disconnect (session may be gone)
+_socket_user_map = {}
+
+def _emit_presence(user_id, is_online, last_seen_iso=None):
+    """Broadcast presence so all clients can update their chat list."""
+    payload = {'user_id': user_id, 'is_online': is_online}
+    if last_seen_iso is not None:
+        payload['last_seen'] = last_seen_iso
+    socketio.emit('user_presence_update', payload, broadcast=True)
+
 def register_socketio_events():
     """Register Socket.IO event handlers"""
     
@@ -1822,28 +1846,29 @@ def register_socketio_events():
         if current_user.is_authenticated:
             room = f"user_{current_user.id}"
             join_room(room)
+            _socket_user_map[request.sid] = str(current_user.id)
             current_user.is_online = True
             db.session.commit()
-            socketio.emit('user_presence_update', {
-                'user_id': current_user.id,
-                'is_online': True,
-                'last_seen': datetime.utcnow().isoformat()
-            })
+            _emit_presence(current_user.id, True, datetime.utcnow().isoformat())
             print(f"Socket Connected: User {current_user.id} joined {room}")
 
     @socketio.on('disconnect')
     def on_disconnect():
-        """Handle user disconnection"""
-        if current_user.is_authenticated:
-            current_user.is_online = False
-            current_user.last_seen = datetime.utcnow()
-            db.session.commit()
-            socketio.emit('user_presence_update', {
-                'user_id': current_user.id,
-                'is_online': False,
-                'last_seen': current_user.last_seen.isoformat()
-            })
-            print(f"Socket Disconnected: User {current_user.id}")
+        """Handle user disconnection - use sid map if session gone"""
+        user_id = _socket_user_map.pop(request.sid, None)
+        if user_id is None and current_user.is_authenticated:
+            user_id = str(current_user.id)
+        if user_id:
+            try:
+                u = User.query.get(user_id)
+                if u:
+                    u.is_online = False
+                    u.last_seen = datetime.utcnow()
+                    db.session.commit()
+            except Exception:
+                db.session.rollback()
+            _emit_presence(user_id, False, datetime.utcnow().isoformat())
+            print(f"Socket Disconnected: User {user_id}")
 
     @socketio.on('join')
     def on_join(data):
@@ -1858,10 +1883,111 @@ def register_socketio_events():
         if current_user.is_authenticated:
             current_user.is_online = True
             db.session.commit()
-            socketio.emit('user_presence_update', {
-                'user_id': current_user.id,
-                'is_online': True
-            })
+            _emit_presence(current_user.id, True, datetime.utcnow().isoformat())
+
+    @socketio.on('chat_window_closed')
+    def on_chat_window_closed(data):
+        """User left chat page - mark offline and set last_seen"""
+        if current_user.is_authenticated:
+            current_user.is_online = False
+            current_user.last_seen = datetime.utcnow()
+            db.session.commit()
+            _emit_presence(current_user.id, False, current_user.last_seen.isoformat())
+
+    @socketio.on('typing_start')
+    def on_typing_start(data):
+        """Forward typing indicator to the other user"""
+        to_user = data.get('to_user_id')
+        if to_user and current_user.is_authenticated:
+            socketio.emit('typing_start', {
+                'from_user_id': current_user.id,
+                'from_user_name': current_user.full_name
+            }, room=f'user_{to_user}')
+
+    @socketio.on('typing_stop')
+    def on_typing_stop(data):
+        to_user = data.get('to_user_id')
+        if to_user and current_user.is_authenticated:
+            socketio.emit('typing_stop', {'from_user_id': current_user.id}, room=f'user_{to_user}')
+
+    @socketio.on('message_delivered')
+    def on_message_delivered(data):
+        """Receiver confirms message received - notify sender"""
+        message_id = data.get('message_id')
+        if message_id and current_user.is_authenticated:
+            msg = Message.query.get(message_id)
+            if msg and str(msg.receiver_id) == str(current_user.id):
+                socketio.emit('message_status', {
+                    'message_id': message_id,
+                    'status': 'delivered'
+                }, room=f'user_{msg.sender_id}')
+
+    @socketio.on('message_seen')
+    def on_message_seen(data):
+        """Receiver marks messages as seen - notify sender"""
+        message_ids = data.get('message_ids') or [data.get('message_id')]
+        message_ids = [mid for mid in message_ids if mid]
+        if not message_ids or not current_user.is_authenticated:
+            return
+        for message_id in message_ids:
+            msg = Message.query.get(message_id)
+            if msg and str(msg.receiver_id) == str(current_user.id):
+                socketio.emit('message_status', {
+                    'message_id': message_id,
+                    'status': 'seen'
+                }, room=f'user_{msg.sender_id}')
+
+    # ---- Call signaling (WebRTC) ----
+    @socketio.on('call_request')
+    def on_call_request(data):
+        """Incoming call: offer and target user."""
+        to_user_id = data.get('to_user_id')
+        offer = data.get('offer')
+        is_video = data.get('is_video', True)
+        if to_user_id and offer and current_user.is_authenticated:
+            socketio.emit('call_request', {
+                'from_user_id': current_user.id,
+                'from_user_name': current_user.full_name,
+                'from_user_image': current_user.profile_image_url,
+                'offer': offer,
+                'is_video': is_video
+            }, room=f'user_{to_user_id}')
+
+    @socketio.on('call_answer')
+    def on_call_answer(data):
+        """Callee sends answer back to caller."""
+        to_user_id = data.get('to_user_id')
+        answer = data.get('answer')
+        if to_user_id and answer and current_user.is_authenticated:
+            socketio.emit('call_answer', {
+                'from_user_id': current_user.id,
+                'answer': answer
+            }, room=f'user_{to_user_id}')
+
+    @socketio.on('call_ice')
+    def on_call_ice(data):
+        """Forward ICE candidate to the other peer."""
+        to_user_id = data.get('to_user_id')
+        candidate = data.get('candidate')
+        if to_user_id and candidate and current_user.is_authenticated:
+            socketio.emit('call_ice', {
+                'from_user_id': current_user.id,
+                'candidate': candidate
+            }, room=f'user_{to_user_id}')
+
+    @socketio.on('call_end')
+    def on_call_end(data):
+        """Either party ends the call."""
+        to_user_id = data.get('to_user_id')
+        if to_user_id and current_user.is_authenticated:
+            socketio.emit('call_end', {'from_user_id': current_user.id}, room=f'user_{to_user_id}')
+
+    @socketio.on('call_reject')
+    def on_call_reject(data):
+        """Callee rejects the call."""
+        to_user_id = data.get('to_user_id')
+        if to_user_id and current_user.is_authenticated:
+            socketio.emit('call_reject', {'from_user_id': current_user.id}, room=f'user_{to_user_id}')
 
     @socketio.on('execution_input')
     def handle_execution_input(data):

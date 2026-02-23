@@ -483,6 +483,11 @@
                 const response = await fetch(`/api/search-users?q=${encodeURIComponent(query)}`);
                 const data = await response.json();
 
+                if (!response.ok) {
+                    searchResults.innerHTML = '<div class="no-results">Error searching users. Please try again.</div>';
+                    searchResults.style.display = 'block';
+                    return;
+                }
                 if (data.users && data.users.length > 0) {
                     displaySearchResults(data.users);
                 } else {
@@ -491,7 +496,7 @@
                 }
             } catch (error) {
                 console.error('Search error:', error);
-                searchResults.innerHTML = '<div class="no-results">Error searching users</div>';
+                searchResults.innerHTML = '<div class="no-results">Error searching users. Please try again.</div>';
                 searchResults.style.display = 'block';
             }
         }
