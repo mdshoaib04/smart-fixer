@@ -338,6 +338,25 @@
             border-bottom-left-radius: 4px;
         }
 
+        /* Inline media in chat bubbles */
+        .chat-image {
+            max-width: 200px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+        }
+
+        .chat-video {
+            max-width: 250px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+        }
+
+        .chat-audio {
+            max-width: 250px;
+        }
+
         .message-time {
             font-size: 0.7rem;
             color: #888;
@@ -970,10 +989,17 @@
             const url = (msg.file_attachment || '').replace(/'/g, "\\'");
             if (msg.file_attachment) {
                 if (type === 'image') {
-                    return `<img src="${escapeHtml(url)}" alt="Image" style="max-width: 300px; max-height: 300px; border-radius: 8px; cursor: pointer;" onclick="openMediaModal('image','${escapeHtml(url)}')">`;
+                    return `<img src="${escapeHtml(url)}" alt="Image" class="chat-image" onclick="openMediaModal('image','${escapeHtml(url)}')">`;
                 } else if (type === 'video') {
-                    return `<video controls style="max-width: 300px; max-height: 300px; border-radius: 8px;" onclick="event.stopPropagation(); openMediaModal('video','${escapeHtml(url)}')">
-                        <source src="${escapeHtml(url)}" type="video/mp4">Your browser does not support the video tag.</video>`;
+                    return `<video controls class="chat-video" onclick="event.stopPropagation(); openMediaModal('video','${escapeHtml(url)}')">
+                        <source src="${escapeHtml(url)}"></source>
+                        Your browser does not support the video tag.
+                    </video>`;
+                } else if (type === 'audio') {
+                    return `<audio controls class="chat-audio">
+                        <source src="${escapeHtml(url)}"></source>
+                        Your browser does not support the audio element.
+                    </audio>`;
                 } else if (type === 'pdf') {
                     return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" style="display: inline-block; padding: 10px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333;">📄 PDF Document</a> <button type="button" onclick="openMediaModal('file','${escapeHtml(url)}')" style="margin-left:8px;">Open</button>`;
                 } else {
@@ -1271,7 +1297,19 @@
                 peerConnection.createOffer().then(function (offer) {
                     return peerConnection.setLocalDescription(offer);
                 }).then(function () {
-                    socket.emit('call_request', { to_user_id: currentCallPeerId, offer: peerConnection.localDescription, is_video: video });
+                    // Original event for existing clients
+                    socket.emit('call_request', {
+                        to_user_id: currentCallPeerId,
+                        offer: peerConnection.localDescription,
+                        is_video: video
+                    });
+                    // Compatibility event matching simplified signaling contract
+                    socket.emit('call_user', {
+                        to: currentCallPeerId,
+                        from: currentUserId,
+                        offer: peerConnection.localDescription,
+                        is_video: video
+                    });
                 }).catch(function (err) { console.error(err); endCall(); });
             }).catch(function (err) { console.error('getUserMedia failed', err); endCall(); });
         }
@@ -1455,18 +1493,27 @@
                 }
             });
 
-            socket.on('call_request', function (data) {
-                window._incomingCallFrom = data.from_user_id;
+            function handleIncomingCall(data) {
+                const fromId = data.from_user_id || data.from;
+                if (!fromId || !data.offer) return;
+                window._incomingCallFrom = fromId;
                 window._incomingCallOffer = data.offer;
                 window._incomingCallVideo = data.is_video !== false;
                 document.getElementById('incomingCallText').textContent = (data.from_user_name || 'Someone') + ' is calling...';
                 document.getElementById('incomingCallModal').classList.add('show');
-            });
-            socket.on('call_answer', function (data) {
+            }
+            socket.on('call_request', handleIncomingCall);
+            socket.on('incoming_call', handleIncomingCall);
+
+            function handleCallAnswered(data) {
                 if (!peerConnection || !data.answer) return;
-                peerConnection.setRemoteDescription(new (window.RTCSessionDescription || window.webkitRTCSessionDescription)(data.answer)).catch(function (e) { console.error(e); });
+                peerConnection.setRemoteDescription(
+                    new (window.RTCSessionDescription || window.webkitRTCSessionDescription)(data.answer)
+                ).catch(function (e) { console.error(e); });
                 startCallDuration();
-            });
+            }
+            socket.on('call_answer', handleCallAnswered);
+            socket.on('call_answered', handleCallAnswered);
             socket.on('call_ice', function (data) {
                 if (!peerConnection || !data.candidate) return;
                 peerConnection.addIceCandidate(new (window.RTCIceCandidate || window.webkitRTCIceCandidate)(data.candidate)).catch(function (e) { console.error(e); });
@@ -1502,7 +1549,16 @@
                     }).then(function (answer) {
                         return peerConnection.setLocalDescription(answer);
                     }).then(function () {
-                        socket.emit('call_answer', { to_user_id: currentCallPeerId, answer: peerConnection.localDescription });
+                        // Original event for existing clients
+                        socket.emit('call_answer', {
+                            to_user_id: currentCallPeerId,
+                            answer: peerConnection.localDescription
+                        });
+                        // Compatibility event matching simplified signaling contract
+                        socket.emit('answer_call', {
+                            to: currentCallPeerId,
+                            answer: peerConnection.localDescription
+                        });
                         startCallDuration();
                     }).catch(function (e) { console.error(e); endCall(); });
                 }).catch(function (e) { console.error(e); endCall(); });

@@ -522,10 +522,22 @@ def register_routes():
                 # Unlike the post
 
                 db.session.delete(existing_like)
-
+                
                 # Update post likes count
                 post.likes = PostLike.query.filter_by(post_id=post_id).count()
                 db.session.commit()
+
+                # Emit real-time like update for clients (e.g., profile liked tab)
+                socketio.emit(
+                    'post_liked',
+                    {
+                        'post_id': post_id,
+                        'user_id': current_user.id,
+                        'liked': False,
+                        'likes': post.likes,
+                    },
+                    room=f'user_{current_user.id}',
+                )
                 
                 return jsonify({'success': True, 'message': 'Post unliked', 'liked': False, 'likes': post.likes})
 
@@ -575,6 +587,18 @@ def register_routes():
             # Update post likes count after commit to be sure
             post.likes = PostLike.query.filter_by(post_id=post_id).count()
             db.session.commit()
+
+            # Emit real-time like update for clients (e.g., profile liked tab)
+            socketio.emit(
+                'post_liked',
+                {
+                    'post_id': post_id,
+                    'user_id': current_user.id,
+                    'liked': True,
+                    'likes': post.likes,
+                },
+                room=f'user_{current_user.id}',
+            )
             
             return jsonify({'success': True, 'message': 'Post liked', 'liked': True, 'likes': post.likes})
 
@@ -1030,12 +1054,14 @@ def register_routes():
             
             file.save(save_path)
             
-            # File type detection
+            # File type detection (including audio)
             ext = original_name.lower()
-            if ext.endswith(('.png', '.jpg', '.jpeg', '.gif')):
+            if ext.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
                 file_type = 'image'
-            elif ext.endswith(('.mp4', '.webm', '.mov')):
+            elif ext.endswith(('.mp4', '.webm', '.mov', '.mkv')):
                 file_type = 'video'
+            elif ext.endswith(('.mp3', '.wav', '.ogg', '.m4a', '.flac')):
+                file_type = 'audio'
             elif ext.endswith('.pdf'):
                 file_type = 'pdf'
             else:
@@ -1044,7 +1070,8 @@ def register_routes():
             return jsonify({
                 'success': True,
                 'file_path': f'/static/uploads/{unique_filename}',
-                'file_type': file_type
+                'file_type': file_type,
+                'original_name': original_name
             })
         except Exception as e:
             print(f"CRITICAL UPLOAD ERROR: {e}")
@@ -2055,6 +2082,53 @@ def register_socketio_events():
         if to_user_id and current_user.is_authenticated:
             socketio.emit('call_reject', {'from_user_id': current_user.id}, room=f'user_{to_user_id}')
 
+    # Compatibility aliases matching simplified signaling contract
+    @socketio.on('call_user')
+    def on_call_user(data):
+        """
+        Alias: caller initiates a call.
+        Expected payload: { to, from, offer, is_video? }
+        Emits: incoming_call to the receiver's personal room.
+        """
+        to_user_id = data.get('to')
+        offer = data.get('offer')
+        is_video = data.get('is_video', True)
+        # Prefer authenticated user id as canonical "from"
+        from_user_id = current_user.id if current_user.is_authenticated else data.get('from')
+        if to_user_id and offer and from_user_id:
+            socketio.emit(
+                'incoming_call',
+                {
+                    'from': from_user_id,
+                    'from_user_id': from_user_id,
+                    'from_user_name': getattr(current_user, 'full_name', None),
+                    'from_user_image': getattr(current_user, 'profile_image_url', None),
+                    'offer': offer,
+                    'is_video': is_video,
+                },
+                room=f'user_{to_user_id}',
+            )
+
+    @socketio.on('answer_call')
+    def on_answer_call(data):
+        """
+        Alias: callee answers a call.
+        Expected payload: { to, answer }
+        Emits: call_answered back to caller's personal room.
+        """
+        to_user_id = data.get('to')
+        answer = data.get('answer')
+        if to_user_id and answer and current_user.is_authenticated:
+            socketio.emit(
+                'call_answered',
+                {
+                    'from': current_user.id,
+                    'from_user_id': current_user.id,
+                    'answer': answer,
+                },
+                room=f'user_{to_user_id}',
+            )
+
     @socketio.on('execution_input')
     def handle_execution_input(data):
         """Handle input for interactive execution - accept stdin anytime while process alive"""
@@ -2230,6 +2304,16 @@ def register_socketio_events():
                 db.session.add(post)
                 db.session.commit()
 
+                # Emit lightweight real-time event so profile/explore views can refresh
+                socketio.emit(
+                    'post_created',
+                    {
+                        'post_id': post.id,
+                        'user_id': current_user.id,
+                    },
+                    room=f'user_{current_user.id}',
+                )
+
                 # Notify followers about new post
                 try:
                     followers = Follower.query.filter_by(user_id=current_user.id).all()
@@ -2362,11 +2446,35 @@ def register_socketio_events():
             if existing:
                 db.session.delete(existing)
                 db.session.commit()
+
+                # Emit real-time save update for current user (profile "Saved" tab)
+                socketio.emit(
+                    'post_saved',
+                    {
+                        'post_id': post_id,
+                        'user_id': current_user.id,
+                        'saved': False,
+                    },
+                    room=f'user_{current_user.id}',
+                )
+
                 return jsonify({'success': True, 'saved': False})
 
             save = PostSave(post_id=post_id, user_id=current_user.id)
             db.session.add(save)
             db.session.commit()
+
+            # Emit real-time save update for current user (profile "Saved" tab)
+            socketio.emit(
+                'post_saved',
+                {
+                    'post_id': post_id,
+                    'user_id': current_user.id,
+                    'saved': True,
+                },
+                room=f'user_{current_user.id}',
+            )
+
             return jsonify({'success': True, 'saved': True})
         except Exception as e:
             db.session.rollback()
@@ -2525,6 +2633,24 @@ def register_socketio_events():
                     'read_status': notif.read_status,
                 },
                 room=f'user_{notif.user_id}',
+            )
+
+            # Emit lightweight real-time followers/following update for both users
+            socketio.emit(
+                'follow_request_accepted',
+                {
+                    'follower_id': follow_req.from_user_id,
+                    'followed_id': current_user.id,
+                },
+                room=f'user_{follow_req.from_user_id}',
+            )
+            socketio.emit(
+                'follow_request_accepted',
+                {
+                    'follower_id': follow_req.from_user_id,
+                    'followed_id': current_user.id,
+                },
+                room=f'user_{current_user.id}',
             )
 
             return jsonify({'success': True})
@@ -2992,4 +3118,78 @@ def register_socketio_events():
         except Exception as e:
             print(f"Error fetching user stats: {e}")
             return jsonify({'error': 'Failed to fetch stats'}), 500
+
+    @app.route('/api/update-profile', methods=['POST'])
+    @require_login
+    def api_update_profile():
+        """Update current user's basic profile fields (name, bio, location)."""
+        try:
+            data = request.get_json() or {}
+            first_name = (data.get('first_name') or '').strip()
+            last_name = (data.get('last_name') or '').strip()
+            username = (data.get('username') or '').strip()
+            bio = (data.get('bio') or '').strip()
+            location_enabled = bool(data.get('location_enabled', False))
+            location = (data.get('location') or '').strip() or None
+
+            if first_name:
+                current_user.first_name = first_name
+            if last_name:
+                current_user.last_name = last_name
+            if username:
+                current_user.username = username
+            current_user.bio = bio or None
+            current_user.location_enabled = location_enabled
+            if location_enabled:
+                current_user.location = location
+            else:
+                current_user.location = None
+
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'first_name': current_user.first_name,
+                'last_name': current_user.last_name,
+                'username': current_user.username,
+                'bio': current_user.bio,
+                'location_enabled': current_user.location_enabled,
+                'location': current_user.location,
+            })
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error updating profile: {e}")
+            return jsonify({'success': False, 'error': 'Failed to update profile'}), 500
+
+    @app.route('/api/upload-profile-pic', methods=['POST'])
+    @require_login
+    def api_upload_profile_pic():
+        """Upload and set the current user's profile picture."""
+        try:
+            if 'profile_pic' not in request.files:
+                return jsonify({'success': False, 'error': 'No file provided'}), 400
+
+            file = request.files['profile_pic']
+            if file.filename == '':
+                return jsonify({'success': False, 'error': 'Empty filename'}), 400
+
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            upload_dir = os.path.join(base_dir, 'static', 'uploads', 'avatars')
+            os.makedirs(upload_dir, exist_ok=True)
+
+            original_name = secure_filename(file.filename)
+            unique_name = f"{current_user.id}_{int(time.time())}_{original_name}"
+            save_path = os.path.join(upload_dir, unique_name)
+            file.save(save_path)
+
+            rel_url = f"/static/uploads/avatars/{unique_name}"
+            current_user.profile_image_url = rel_url
+            current_user.profile_image_path = save_path
+            db.session.commit()
+
+            return jsonify({'success': True, 'profile_image_url': rel_url})
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error uploading profile pic: {e}")
+            return jsonify({'success': False, 'error': 'Failed to upload profile picture'}), 500
 
