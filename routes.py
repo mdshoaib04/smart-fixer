@@ -930,7 +930,7 @@ def register_routes():
             conv = get_or_create_conversation(current_user.id, receiver_id)
             conv.updated_at = datetime.now()
             
-            # Create new message
+            # Create and persist new message
             message = Message()
             message.conversation_id = conv.id
             message.sender_id = current_user.id
@@ -941,10 +941,10 @@ def register_routes():
             message.file_attachment = file_attachment
             message.file_type = file_type
             message.is_read = False
-            
+
             db.session.add(message)
             db.session.commit()
-            
+
             # Prepare message data for Socket.IO
             message_data = {
                 'id': message.id,
@@ -952,7 +952,7 @@ def register_routes():
                 'sender_id': current_user.id,
                 'receiver_id': receiver_id,
                 'content': content,
-                'message': content, 
+                'message': content,
                 'message_type': message_type,
                 'code_snippet': code_snippet,
                 'file_attachment': file_attachment,
@@ -960,12 +960,15 @@ def register_routes():
                 'timestamp': message.created_at.isoformat(),
                 'created_at': message.created_at.isoformat(),
                 'sender_name': current_user.full_name,
-                'sender_image': current_user.profile_image_url
+                'sender_image': current_user.profile_image_url,
             }
-            
-            # Emit to both sender and receiver rooms
+
+            # Emit to both sender and receiver rooms (new_message kept for backward‑compat)
             socketio.emit('new_message', message_data, room=f'user_{receiver_id}')
             socketio.emit('new_message', message_data, room=f'user_{current_user.id}')
+            # Also emit explicit receive_message event as requested
+            socketio.emit('receive_message', message_data, room=f'user_{receiver_id}')
+            socketio.emit('receive_message', message_data, room=f'user_{current_user.id}')
             
             # Sync unread counts
             emit_unread_count(receiver_id)
@@ -1835,13 +1838,13 @@ def _emit_presence(user_id, is_online, last_seen_iso=None):
     payload = {'user_id': user_id, 'is_online': is_online}
     if last_seen_iso is not None:
         payload['last_seen'] = last_seen_iso
-    socketio.emit('user_presence_update', payload, broadcast=True)
+    socketio.emit('user_presence_update', payload)
 
 def register_socketio_events():
     """Register Socket.IO event handlers"""
     
     @socketio.on('connect')
-    def on_connect():
+    def on_connect(auth=None):
         """Handle user connection - strict personal room join"""
         if current_user.is_authenticated:
             room = f"user_{current_user.id}"
@@ -1893,6 +1896,69 @@ def register_socketio_events():
             current_user.last_seen = datetime.utcnow()
             db.session.commit()
             _emit_presence(current_user.id, False, current_user.last_seen.isoformat())
+
+    @socketio.on('send_message')
+    def on_send_message(data):
+        """Real-time message send: save to DB, then emit receive_message/new_message"""
+        if not current_user.is_authenticated:
+            return
+        try:
+            receiver_id = data.get('receiver_id')
+            content = (data.get('content') or '').strip()
+            message_type = data.get('message_type') or 'text'
+            code_snippet = data.get('code_snippet')
+            file_attachment = data.get('file_attachment')
+            file_type = data.get('file_type')
+
+            if not receiver_id or not content:
+                return
+
+            receiver = User.query.get(receiver_id)
+            if not receiver:
+                return
+
+            conv = get_or_create_conversation(current_user.id, receiver_id)
+            conv.updated_at = datetime.now()
+
+            message = Message()
+            message.conversation_id = conv.id
+            message.sender_id = current_user.id
+            message.receiver_id = receiver_id
+            message.content = content
+            message.message_type = message_type
+            message.code_snippet = code_snippet
+            message.file_attachment = file_attachment
+            message.file_type = file_type
+            message.is_read = False
+
+            db.session.add(message)
+            db.session.commit()
+
+            message_data = {
+                'id': message.id,
+                'conversation_id': conv.id,
+                'sender_id': current_user.id,
+                'receiver_id': receiver_id,
+                'content': content,
+                'message': content,
+                'message_type': message_type,
+                'code_snippet': code_snippet,
+                'file_attachment': file_attachment,
+                'file_type': file_type,
+                'timestamp': message.created_at.isoformat(),
+                'created_at': message.created_at.isoformat(),
+                'sender_name': current_user.full_name,
+                'sender_image': current_user.profile_image_url,
+            }
+
+            socketio.emit('new_message', message_data, room=f'user_{receiver_id}')
+            socketio.emit('new_message', message_data, room=f'user_{current_user.id}')
+            socketio.emit('receive_message', message_data, room=f'user_{receiver_id}')
+            socketio.emit('receive_message', message_data, room=f'user_{current_user.id}')
+            emit_unread_count(receiver_id)
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error in send_message socket handler: {e}")
 
     @socketio.on('typing_start')
     def on_typing_start(data):

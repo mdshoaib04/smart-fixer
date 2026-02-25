@@ -1,24 +1,27 @@
 import os
 import multiprocessing
-from gpt4all import GPT4All
+
+try:
+    from gpt4all import GPT4All
+except Exception:
+    GPT4All = None
+
 
 def diagnose_ai():
     model_name = "Phi-3-mini-4k-instruct.Q4_0.gguf"
     print(f"Diagnosing GPT4All for model: {model_name}")
     
-    # Check CPU cores
     cores = multiprocessing.cpu_count()
     print(f"Available CPU logical cores: {cores}")
     
+    if GPT4All is None:
+        print("GPT4All library is not installed. Install it to enable local model diagnostics.")
+        return
+
     try:
-        # Initialize client
         client = GPT4All(model_name)
+        print(f"Model loaded: {getattr(getattr(client, 'model', None), 'model_name', 'unknown')}")
         
-        # Check current implementation details
-        # In newer versions, we can list available models/devices
-        print(f"Model loaded: {client.model.model_name}")
-        
-        # Test a very short generation to see speed
         import time
         start = time.time()
         with client.chat_session():
@@ -29,6 +32,7 @@ def diagnose_ai():
         
     except Exception as e:
         print(f"Error during diagnosis: {e}")
+
 
 if __name__ == "__main__":
     diagnose_ai()

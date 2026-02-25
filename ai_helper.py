@@ -10,13 +10,17 @@ import json
 import requests
 from dotenv import load_dotenv
 import logging
-from gpt4all import GPT4All
+
+try:
+    from gpt4all import GPT4All  # optional local model
+except Exception:
+    GPT4All = None
 
 load_dotenv()
 
 # Global AI client
 ai_client = None
-ai_provider = "local_gpt4all"
+ai_provider = "local_gpt4all" if GPT4All is not None else "gemini_only"
 ai_lock = threading.Lock()
 
 # Configuration
@@ -26,9 +30,15 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
 LOCAL_MODEL_NAME = os.environ.get("LOCAL_MODEL_NAME", "Phi-3-mini-4k-instruct.Q4_0.gguf")
 
 def initialize_ai_client():
-    """Initialize the local GPT4All model as a fallback"""
+    """Initialize the local GPT4All model as a fallback (if available)."""
     global ai_client, ai_provider
     
+    if GPT4All is None:
+        print("Local GPT4All library not installed; using Gemini/cloud only.")
+        ai_client = None
+        ai_provider = "gemini_only"
+        return False
+
     try:
         if ai_client is not None:
             return True
@@ -37,10 +47,12 @@ def initialize_ai_client():
         # Initialize GPT4All with a safer thread count
         ai_client = GPT4All(LOCAL_MODEL_NAME, n_threads=4)
         print(f"Local AI module '{LOCAL_MODEL_NAME}' ready.")
+        ai_provider = "local_gpt4all"
         return True
     except Exception as e:
         print(f"Error configuring local AI client: {e}")
         ai_client = None
+        ai_provider = "gemini_only"
         return False
 
 def call_gemini_api(prompt, max_tokens=1000):
@@ -123,7 +135,7 @@ def call_gemini_api(prompt, max_tokens=1000):
     return None
 
 def generate_content(prompt, max_tokens=500):
-    """Generate content using Gemini (if key exists) with fallback to local GPT4All"""
+    """Generate content using Gemini (if key exists) with optional fallback to local GPT4All"""
     
     # Try Gemini first if API key is present
     if GEMINI_API_KEY:
@@ -132,10 +144,10 @@ def generate_content(prompt, max_tokens=500):
             print("Generated content via Gemini Cloud.")
             return result
             
-    # Fallback to local AI
+    # Fallback to local AI (only if GPT4All is installed)
     if not ai_client:
         if not initialize_ai_client():
-            return "Both Cloud AI and Local AI are unavailable."
+            return "Cloud AI is unavailable and local GPT4All is not installed."
     
     try:
         print(f"Generating content locally (Fallback) for prompt: {prompt[:50]}...")

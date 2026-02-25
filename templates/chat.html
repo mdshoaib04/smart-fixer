@@ -7,6 +7,7 @@
     <title>Chat - SmartFixer</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         .friend-selection-container {
@@ -361,6 +362,8 @@
             border-radius: 50%;
             transition: background-color 0.2s;
             color: var(--text-color);
+            display: inline-block;
+            font-size: 18px;
         }
 
         .attach-btn:hover,
@@ -383,6 +386,21 @@
         [data-theme="dark"] .message.received .message-text {
             background-color: #444;
             color: white;
+        }
+
+        /* Icon colors per theme */
+        [data-theme="dark"] .chat-icon i,
+        [data-theme="dark"] .attach-btn i,
+        [data-theme="dark"] .code-btn i,
+        [data-theme="dark"] .send-btn i {
+            color: #ffffff;
+        }
+
+        [data-theme="light"] .chat-icon i,
+        [data-theme="light"] .attach-btn i,
+        [data-theme="light"] .code-btn i,
+        [data-theme="light"] .send-btn i {
+            color: #000000;
         }
 
         [data-theme="dark"] .search-input,
@@ -628,14 +646,14 @@
                         <div class="current-chat-status">Offline</div>
                     </div>
                     <div class="chat-actions">
-                        <button class="chat-action-btn" title="Video Call" onclick="startVideoCall()">
+                        <button id="videoCallBtn" class="chat-action-btn" title="Video Call" onclick="startVideoCall()" disabled>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2">
                                 <polygon points="23 7 16 12 23 17 23 7" />
                                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                             </svg>
                         </button>
-                        <button class="chat-action-btn" title="Voice Call" onclick="startVoiceCall()">
+                        <button id="voiceCallBtn" class="chat-action-btn" title="Voice Call" onclick="startVoiceCall()" disabled>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2">
                                 <path
@@ -685,7 +703,7 @@
         const currentUserId = "{{ user.id }}";
         let navigationHistory = JSON.parse(sessionStorage.getItem('navigationHistory') || '[]');
         let socket;
-        let currentChatUser = null;
+        let currentChatUser = null; // acts as selectedChatId for calls
         let allChats = [];
         let chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '{}');
         let searchTimeout;
@@ -887,6 +905,15 @@
 
             currentChatUser = userId;
 
+            // Update call buttons enabled state based on selection and socket connection
+            const hasChat = currentChatUser != null;
+            const connected = socket && socket.connected;
+            const enableCalls = hasChat && connected;
+            const videoBtn = document.getElementById('videoCallBtn');
+            const voiceBtn = document.getElementById('voiceCallBtn');
+            if (videoBtn) videoBtn.disabled = !enableCalls;
+            if (voiceBtn) voiceBtn.disabled = !enableCalls;
+
             // Clear unread badge
             const badge = document.getElementById(`unread-badge-${userId}`);
             if (badge) {
@@ -1038,42 +1065,30 @@
             const payload = { receiver_id: currentChatUser, content: message, message_type: 'text' };
             const tempId = 'temp_' + Date.now();
 
-            function doSend(retriesLeft) {
+            appendOptimisticMessage(tempId, message, 'text');
+            input.value = '';
+
+            // Prefer real-time socket delivery; backend persists and emits receive_message
+            if (socket && socket.connected) {
+                socket.emit('send_message', Object.assign({ temp_id: tempId }, payload));
+            } else {
+                // Fallback to HTTP API if socket is not connected
                 fetch('/api/send-message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 })
-                    .then(function (response) {
-                        if (!response.ok) throw new Error('Network response not ok');
-                        return response.json();
-                    })
+                    .then(function (response) { return response.json(); })
                     .then(function (data) {
-                        if (data.success) {
-                            input.value = '';
-                            updateSidebarLastMessage(currentChatUser, message, 'text', new Date().toISOString());
+                        if (data && data.success && data.message_id) {
                             var existing = document.querySelector('[data-message-id="' + tempId + '"]');
-                            if (existing && data.message_id) existing.setAttribute('data-message-id', data.message_id);
-                        } else {
-                            if (retriesLeft > 0) {
-                                setTimeout(function () { doSend(retriesLeft - 1); }, 1000);
-                            } else {
-                                alert('Failed to send: ' + (data.error || 'Unknown error'));
-                            }
+                            if (existing) existing.setAttribute('data-message-id', data.message_id);
                         }
                     })
                     .catch(function (err) {
-                        if (retriesLeft > 0) {
-                            setTimeout(function () { doSend(retriesLeft - 1); }, 1000);
-                        } else {
-                            console.error('Error sending message:', err);
-                        }
+                        console.error('Error sending message via HTTP fallback:', err);
                     });
             }
-
-            appendOptimisticMessage(tempId, message, 'text');
-            input.value = '';
-            doSend(2);
         }
 
         function appendOptimisticMessage(tempId, content, messageType) {
@@ -1224,7 +1239,6 @@
 
         function startVideoCall() {
             if (!currentChatUser || !socket || !socket.connected) {
-                alert('Please select a chat and ensure you are connected.');
                 return;
             }
             isVideoCall = true;
@@ -1233,7 +1247,6 @@
 
         function startVoiceCall() {
             if (!currentChatUser || !socket || !socket.connected) {
-                alert('Please select a chat and ensure you are connected.');
                 return;
             }
             isVideoCall = false;
@@ -1357,10 +1370,15 @@
             // Log connection state and join personal room
             socket.on('connect', () => {
                 console.log('Socket Connected:', socket.id);
-                // Backend now joins us to user_{{ user.id }} automatically on connect,
-                // but we can explicitly emit to be safe if desired.
                 socket.emit('join', { room: `user_${currentUserId}` });
                 socket.emit('chat_window_opened', { status: 'online', page: 'chat' });
+                // Enable call buttons if a chat is already selected
+                const hasChat = currentChatUser != null;
+                const videoBtn = document.getElementById('videoCallBtn');
+                const voiceBtn = document.getElementById('voiceCallBtn');
+                const enableCalls = hasChat && socket.connected;
+                if (videoBtn) videoBtn.disabled = !enableCalls;
+                if (voiceBtn) voiceBtn.disabled = !enableCalls;
             });
 
             socket.on('disconnect', (reason) => {
@@ -1375,6 +1393,16 @@
                 } else if (isForCurrentChat && !isFromOther) {
                     var existing = document.querySelector('[data-message-id="' + (data.id || '') + '"]');
                     if (!existing) displayMessage(data);
+                }
+                updateSidebarLastMessage(isFromOther ? data.sender_id : data.receiver_id, data.content || data.message || (data.message_type === 'code' ? 'Code' : (data.file_attachment ? 'File' : '')), data.message_type || 'text', data.timestamp || data.created_at);
+            });
+
+            // Explicit receive_message handler (alias of new_message)
+            socket.on('receive_message', function (data) {
+                const isFromOther = String(data.sender_id) !== String(currentUserId);
+                const isForCurrentChat = currentChatUser && (String(data.sender_id) === String(currentChatUser) || String(data.receiver_id) === String(currentChatUser));
+                if (isForCurrentChat) {
+                    displayMessage(data);
                 }
                 updateSidebarLastMessage(isFromOther ? data.sender_id : data.receiver_id, data.content || data.message || (data.message_type === 'code' ? 'Code' : (data.file_attachment ? 'File' : '')), data.message_type || 'text', data.timestamp || data.created_at);
             });

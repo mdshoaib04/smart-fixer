@@ -11,7 +11,10 @@ from flask_dance.consumer import oauth_authorized, oauth_error
 from flask_dance.consumer.storage import BaseStorage
 from flask_login import LoginManager, login_user, logout_user, current_user
 from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
-from sqlalchemy.exc import NoResultFound
+try:
+    from sqlalchemy.exc import NoResultFound
+except Exception:  # SQLAlchemy <1.4 compatibility
+    NoResultFound = Exception
 from werkzeug.local import LocalProxy
 
 # Enable logging for OAuth debugging

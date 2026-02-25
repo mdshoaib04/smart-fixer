@@ -3,7 +3,10 @@ import time as _time
 from database import db
 from flask_login import LoginManager, current_user, login_user, logout_user
 from flask_socketio import SocketIO
-from flask_migrate import Migrate
+try:
+    from flask_migrate import Migrate  # type: ignore
+except Exception:
+    Migrate = None
 
 import os
 from dotenv import load_dotenv
@@ -51,7 +54,10 @@ db.init_app(app)
 
 # Initialize SocketIO with proper configuration
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
-migrate = Migrate(app, db)
+if Migrate is not None:
+    migrate = Migrate(app, db)
+else:
+    migrate = None
 
 # Import and initialize OAuth
 import oauth_auth
