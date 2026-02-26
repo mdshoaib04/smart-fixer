@@ -318,34 +318,34 @@ if __name__ == '__main__':
     
     # Final fix for SocketIO run configuration
     if _name_ == '_main_':
-    import os
-    import socket
+        import os
+        import socket
 
     # Use Render's PORT environment variable if available, else fallback to 5000
-    port = int(os.environ.get("PORT", 5000))
+        port = int(os.environ.get("PORT", 5000))
 
     # Clear console (optional)
-    os.system('cls' if os.name == 'nt' else 'clear')
+        os.system('cls' if os.name == 'nt' else 'clear')
 
     # Optional: print startup info
-    def get_local_ip():
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            local_ip = s.getsockname()[0]
-            s.close()
-            return local_ip
-        except:
-            return "127.0.0.1"
+        def get_local_ip():
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                s.close()
+                return local_ip
+            except:
+                return "127.0.0.1"
 
-    local_ip = get_local_ip()
-    print("\n" + "="*60)
-    print("SMARTFIXER CODE REVIEWER STARTING...")
-    print("="*60)
-    print(f"Server Status: Starting on port {port}")
-    print(f"Main URL: http://localhost:{port}")
-    print(f"Local Network: http://{local_ip}:{port}")
-    print("="*60 + "\n")
+        local_ip = get_local_ip()
+        print("\n" + "="*60)
+        print("SMARTFIXER CODE REVIEWER STARTING...")
+        print("="*60)
+        print(f"Server Status: Starting on port {port}")
+        print(f"Main URL: http://localhost:{port}")
+        print(f"Local Network: http://{local_ip}:{port}")
+        print("="*60 + "\n")
 
     # Run SocketIO server with Render-compatible host/port
-    socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True)
+        socketio.run(app, host='0.0.0.0', port=port, debug=True, allow_unsafe_werkzeug=True)
