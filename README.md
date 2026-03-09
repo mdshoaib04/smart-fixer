@@ -396,3 +396,5 @@ copies or substantial portions of the Software.
 **SmartFixer** - Revolutionizing code review and developer collaboration with AI-powered intelligence. 🚀✨
 
 *Built with passion for the developer community. Happy coding!* 💻❤️
+
+DEVELOPED BY **MOHD SHOAIB SOUDAGAR**
